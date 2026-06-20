@@ -1,59 +1,61 @@
 # API Bun - Clean Architecture Edition
 
-Este projeto é uma API desenvolvida com o runtime **Bun** e o framework **Elysia**, estruturada sob os princípios da **Clean Architecture (Arquitetura Limpa)** e utilizando **Injeção de Dependências**.
+Este projeto é uma API de alta performance desenvolvida com o runtime **Bun** e o framework **Elysia**, estruturada sob os rigorosos princípios da **Clean Architecture (Arquitetura Limpa)** e utilizando **Injeção de Dependências**.
 
 A arquitetura foi desenhada para garantir que a lógica de negócio seja independente de ferramentas externas, facilitando manutenções, testes e substituições tecnológicas sem impactar o núcleo do sistema.
 
 ---
 
+## ✨ Principais Funcionalidades
+
+* **RBAC (Role-Based Access Control):** Controle de acesso a rotas restrito por papéis configuráveis (`ADMIN`, `EDITOR` e `VIEWER`).
+* **Tratamento Global de Erros:** Interceptação centralizada de falhas, eliminando *magic strings* e números soltos.
+* **Documentação Dinâmica:** Integração nativa com OpenAPI/Swagger.
+* **Seed Automático:** Criação automatizada e segura do usuário administrador padrão durante a inicialização.
+* **Alta Performance em I/O:** Operações reativas no banco de dados, reduzindo latência.
+
+---
+
 ## 🏗 Arquitetura do Projeto
 
-O projeto é dividido em camadas concêntricas, onde as dependências apontam sempre para dentro (em direção ao centro/core). A comunicação entre essas camadas é totalmente orquestrada pelo nosso container de Injeção de Dependência.
-
 ### 1. Camada de Core (`src/core`)
-É o "coração" da aplicação. Esta camada não conhece nada sobre banco de dados, protocolos de rede ou frameworks web. Ela contém apenas a lógica de negócio pura.
-
-* **Domain (`src/core/domain`):** Define os objetos de domínio e as interfaces (contratos) que o sistema deve seguir. Por exemplo, define o que é um "Usuário" e quais métodos um repositório de usuários deve ter, sem implementar nada técnico.
-* **Use Cases (`src/core/usecases`):** Contêm a lógica de execução das ações do usuário (ex: cadastrar_usuario, buscar_perfil). Eles coordenam o fluxo de dados entre os objetos de domínio e as abstrações de infraestrutura.
+O "coração" da aplicação. Independente de banco de dados ou frameworks.
+* **Domain:** Define o que é um "Usuário" e contratos de repositório.
+* **Use Cases:** Lógica de negócio pura que coordena ações.
 
 ### 2. Camada de Infraestrutura (`src/infrastructure`)
-Esta camada lida com detalhes técnicos e ferramentas externas. Ela implementa as interfaces definidas na camada de Core.
-
-* **Repositories (`src/infrastructure/repositories`):** Implementam o acesso a dados (neste caso, utilizando **Drizzle ORM**). Se no futuro decidirmos trocar o banco de dados ou o ORM, apenas esta pasta será alterada.
-* **Auth (`src/infrastructure/auth.ts`):** Contém as integrações com sistemas de autenticação (como **Better Auth**), tratando a lógica complexa de sessões e tokens fora do núcleo da aplicação.
+Implementação de detalhes técnicos.
+* **Repositories:** Acesso a dados otimizado (Drizzle ORM).
+* **Auth:** Integração com Better Auth e scripts de *seed* inicial.
 
 ### 3. Injeção de Dependências (Awilix)
-Em vez das classes instanciarem suas próprias dependências, nós utilizamos o **Awilix** para gerenciar o ciclo de vida dos objetos. 
-
-* O container de DI (Dependency Injection) mapeia as interfaces do `Core` para as implementações reais da `Infrastructure`.
-* Isso permite que a `Apresentação` simplesmente peça um "Caso de Uso", e o Awilix se encarrega de construí-lo injetando automaticamente o repositório correto (ou um *mock* de repositório durante os testes automatizados).
+Gerencia o ciclo de vida dos objetos, mapeando interfaces para implementações, facilitando testes e desacoplamento.
 
 ### 4. Camada de Apresentação (`src/presentation`)
-É a porta de entrada para o mundo externo. Ela traduz requisições externas (HTTP) em chamadas para os Casos de Uso que são resolvidos pelo Awilix.
-
-* **Routes (`src/presentation/routes.ts`):** Utiliza o framework **Elysia** para definir endpoints, validar esquemas de entrada com **Zod** e mapear as rotas para as funções correspondentes no core.
+Porta de entrada HTTP. Traduz requisições para os Casos de Uso.
+* **Routes & Middlewares:** Validação com Zod e controle de acesso via RBAC.
 
 ---
 
 ## 🛠 Tecnologias Utilizadas
 
-* **Runtime:** Bun (Alta performance)
+* **Runtime:** Bun
 * **Web Framework:** ElysiaJS
 * **Injeção de Dependências:** Awilix
-* **ORM/Query Builder:** Drizzle ORM
-* **Validação de Dados:** Zod
+* **ORM:** Drizzle ORM
+* **Validação:** Zod
 * **Autenticação:** Better Auth
 
 ---
 
-## 📂 Estrutura de Pastas e Responsabilidades
+## 📂 Estrutura de Pastas
 
-| Caminho | Função Principal | Tecnologias Relacionadas |
-| :--- | :--- | :--- |
-| `src/core` | Regras de negócio, entidades e lógica central. | TypeScript (Pure) |
-| `src/infrastructure` | Implementação de DB, autenticação e integração externa. | Drizzle, Better Auth |
-| `src/container.ts` | Configuração e resolução de injeção de dependências. | Awilix |
-| `src/presentation` | Definição de rotas, parsing de JSON e validação HTTP. | Elysia, Zod |
+| Caminho | Função |
+| :--- | :--- |
+| `src/core` | Negócio, interfaces, erros e dicionário global. |
+| `src/infrastructure` | DB, Auth e Sementes. |
+| `src/container.ts` | Resolução de DI. |
+| `src/presentation` | Rotas, Middlewares e OpenAPI. |
 
 ---
 
@@ -63,7 +65,7 @@ Este projeto possui uma esteira de deploy 100% automatizada através do **Woodpe
 
 ### Ambientes
 1.  **Homologação (Staging):** Atualizado automaticamente a cada `push` na branch `main`. Ideal para testes contínuos de integração.
-2.  **Produção Oficial:** Atualizado exclusivamente mediante a criação de uma **Tag de Versão** (ex: `v1.0.0`). O pipeline gera automaticamente as *Release Notes* no repositório.
+2.  **Produção:** Atualizado exclusivamente mediante a criação de uma **Tag de Versão** (ex: `v1.0.0`). O pipeline gera automaticamente as *Release Notes* no repositório.
 
 ### Ciclo de Vida do Container
 A imagem é construída sobre o runtime **Bun** (`oven/bun:alpine`). O ecossistema é gerenciado via Docker Compose, utilizando volumes mapeados (ex: `/opt/api-bun/data`) para persistência do banco de dados SQLite. As credenciais e portas de cada ambiente são blindadas e injetadas via *Secrets* do CI/CD.
@@ -72,19 +74,25 @@ A imagem é construída sobre o runtime **Bun** (`oven/bun:alpine`). O ecossiste
 
 ## 🚀 Como Executar Localmente
 
-1. Instale as dependências:
-```bash
-bun install
-```
+1. **Instale as dependências:**
+   ```bash
+   bun install
+   ```
 
-2. Sincronize o esquema do banco de dados (Carga inicial):
-```bash
-bunx drizzle-kit push
-```
+2. **Sincronize o banco de dados:**
+  ```bash
+   bunx drizzle-kit push
+   ```
 
-3. Execute o servidor em modo de desenvolvimento:
-```bash
-bun run dev
-```
+3. **Execute:**
+  ```bash
+   bun run dev
+   ```
 
-O servidor estará disponível e escutando na porta configurada (padrão: http://localhost:3000).
+---
+
+## 👑 Acesso Inicial (Admin Padrão)
+
+### O servidor estará disponível e escutando na porta configurada (padrão: http://localhost:3000).
+* **E-mail:** `admin@admin.com`
+* **Senha:** `admin1234`
