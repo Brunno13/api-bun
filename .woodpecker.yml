@@ -11,7 +11,7 @@ clone:
 
 steps:
   # =========================================================
-  # FASE 1: Testes e Build
+  # FASE 1: Test and Build
   # =========================================================
   - name: testar-codigo
     image: oven/bun:alpine
@@ -21,7 +21,6 @@ steps:
       - echo "Executando a suíte de testes..."
       - bun test
 
-  # Otimização: Agora este passo só roda quando uma TAG é criada
   - name: build-executaveis
     image: oven/bun:alpine
     commands:
@@ -44,7 +43,7 @@ steps:
       - docker build -t api-bun:latest .
 
   # =========================================================
-  # FASE 2: Staging (Roda APENAS no push para a branch main)
+  # FASE 2: Staging (only when push in branch main)
   # =========================================================
   - name: deploy-staging
     image: docker:cli
@@ -70,7 +69,7 @@ steps:
         branch: main
 
   # =========================================================
-  # FASE 3: Produção (Roda APENAS quando uma Tag de versão é criada)
+  # FASE 3: PRODUCTION (tag release)
   # =========================================================
   - name: gerar-release-notes
     image: alpine
@@ -99,7 +98,6 @@ steps:
         
         ---
         
-        ### 🔄 Histórico de Commits
         $CHANGELOG" '{tag_name: $tag, name: $name, body: $body}')
         
         echo "=== ENVIANDO RELEASE PARA O GITEA ==="
@@ -123,7 +121,58 @@ steps:
         
         curl -f -s -X POST "http://192.168.31.215:3099/api/v1/repos/${CI_REPO_OWNER}/${CI_REPO_NAME}/releases/$RELEASE_ID/assets?name=api-bun-macos" -H "Authorization: token $GITEA_TOKEN" -F "attachment=@./bin/api-bun-macos"
         
-        echo "✅ DEPLOY FINALIZADO COM SUCESSO!"
+        echo "✅ DEPLOY FINALIZADO COM SUCESSO NO GITEA!"
+    when:
+      - event: tag
+
+  - name: espelhar-github
+    image: alpine/git
+    environment:
+      GITHUB_TOKEN:
+        from_secret: github_token
+    commands:
+      - echo "=== SINCRONIZANDO COM O GITHUB ==="
+      - git config --global --add safe.directory '*'
+      - git remote add github https://Brunno13:${GITHUB_TOKEN}@github.com/Brunno13/api-bun.git
+      - git push github main --force
+      - git push github ${CI_COMMIT_TAG} --force
+    when:
+      - event: tag
+
+  - name: criar-release-github
+    image: alpine
+    environment:
+      GITHUB_TOKEN:
+        from_secret: github_token
+    commands:
+      - apk add --no-cache curl jq
+      - |
+        set -e
+        echo "=== CRIANDO RELEASE NO GITHUB ==="
+        GITHUB_API_URL="https://api.github.com/repos/Brunno13/api-bun/releases"
+        
+        JSON_PAYLOAD=$(jq -n --arg tag "${CI_COMMIT_TAG}" --arg name "Versão ${CI_COMMIT_TAG}" --arg body "🚀 Lançamento automatizado sincronizado a partir do servidor Gitea interno." '{tag_name: $tag, name: $name, body: $body}')
+        
+        RESPONSE=$(curl -s -X POST $GITHUB_API_URL \
+          -H "Accept: application/vnd.github+json" \
+          -H "Authorization: Bearer $GITHUB_TOKEN" \
+          -d "$JSON_PAYLOAD")
+          
+        RELEASE_ID=$(echo "$RESPONSE" | jq -r '.id')
+        
+        if [ "$RELEASE_ID" == "null" ] || [ -z "$RELEASE_ID" ]; then
+          echo "❌ ERRO: O GitHub não retornou um ID válido. Resposta: $RESPONSE"
+          exit 1
+        fi
+        
+        echo "=== INICIANDO UPLOAD DOS ANEXOS NO GITHUB ==="
+        GH_UPLOAD_URL="https://uploads.github.com/repos/Brunno13/api-bun/releases/$RELEASE_ID/assets"
+        
+        curl -f -s -X POST "$GH_UPLOAD_URL?name=api-bun-linux" -H "Authorization: Bearer $GITHUB_TOKEN" -H "Content-Type: application/octet-stream" --data-binary @"./bin/api-bun-linux"
+        curl -f -s -X POST "$GH_UPLOAD_URL?name=api-bun-windows.exe" -H "Authorization: Bearer $GITHUB_TOKEN" -H "Content-Type: application/octet-stream" --data-binary @"./bin/api-bun-windows.exe"
+        curl -f -s -X POST "$GH_UPLOAD_URL?name=api-bun-macos" -H "Authorization: Bearer $GITHUB_TOKEN" -H "Content-Type: application/octet-stream" --data-binary @"./bin/api-bun-macos"
+        
+        echo "✅ RELEASE NO GITHUB CRIADA COM SUCESSO!"
     when:
       - event: tag
 
