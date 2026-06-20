@@ -1,19 +1,18 @@
-import { userProviders } from "./di/user.registry";
+import { createContainer, InjectionMode, asValue, asClass } from "awilix";
+import { db } from "./infrastructure/db/db";
+import { DrizzleUserRepository } from "./infrastructure/repositories/userRepository";
+import { UserManager } from "./core/usecases/userManager";
 
-const providers = {
-  ...userProviders(getDependency),
-};
+export const setupContainer = () => {
+  const container = createContainer({
+    injectionMode: InjectionMode.CLASSIC,
+  });
 
-const instances = new Map<string, any>();
+  container.register({
+    db: asValue(db),
+    userRepository: asClass(DrizzleUserRepository).singleton(),
+    userManager: asClass(UserManager).singleton(),
+  });
 
-function getDependency(name: keyof typeof providers): any {
-  if (!instances.has(name)) {
-    const provider = providers[name];
-    instances.set(name, typeof provider === "function" ? provider() : provider);
-  }
-  return instances.get(name);
-}
-
-export const container = {
-  get: getDependency,
+  return container;
 };

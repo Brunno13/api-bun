@@ -37,7 +37,6 @@ Esta camada lida com detalhes técnicos e ferramentas externas. Ela implementa a
 ## 📂 Estrutura de Pastas e Responsabilidades
 
 | Caminho | Função Principal | Tecnologias Relacionadas |
-| :--- | :--- |10. | --- |
 | `src/core` | Regras de negócio, entidades e lógica central. | TypeScript (Pure) |
 | `src/infrastructure` | Implementação de DB, autenticação e integração externa. | Drizzle, Better Auth |
 | `src/presentation` | Definição de rotas, parsing de JSON e validação HTTP. | Elysia, Zod |
