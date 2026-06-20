@@ -67,8 +67,11 @@ steps:
       - echo "Preparando ambiente para gerar Changelog..."
       - apk add --no-cache curl git jq
       
-      - echo "Sincronizando o histórico da branch main e das tags para conectar o gráfico..."
-      - git fetch origin main
+      - echo "Sincronizando o histórico completo para conectar o gráfico..."
+      # Configura o Git local para mapear todas as branches corretamente
+      - git config remote.origin.fetch "+refs/heads/*:refs/remotes/origin/*"
+      # O --unshallow é a mágica que diz: "baixe o passado inteiro desse commit"
+      - git fetch --all --unshallow || git fetch --all
       - git fetch --tags
       
       - echo "Calculando a diferença entre as tags..."
