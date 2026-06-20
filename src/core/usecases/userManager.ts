@@ -3,7 +3,10 @@ import { UserRepository } from "../domain/userRepository";
 import { NotFoundError } from "../errors";
 
 export class UserManager {
-  constructor(private userRepository: UserRepository) {}
+  private userRepository: UserRepository;
+  constructor(deps: { userRepository: UserRepository }) {
+    this.userRepository = deps.userRepository;
+  }
 
   async create(data: Omit<User, "id">): Promise<User | null> {
     return this.userRepository.create(data);

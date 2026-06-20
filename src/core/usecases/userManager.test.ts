@@ -41,7 +41,7 @@ describe("UserManager Unit Tests", () => {
       findByEmail: mock().mockResolvedValue(null),
       deleteByEmail: mock().mockResolvedValue(true),
     };
-    userManager = new UserManager(mockUserRepository);
+    userManager = new UserManager({ userRepository: mockUserRepository });
   });
 
   describe("Delegation Methods", () => {

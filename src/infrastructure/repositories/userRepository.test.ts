@@ -26,7 +26,7 @@ describe("DrizzleUserRepository Infrastructure Tests", () => {
       );
     `);
 
-    repository = new DrizzleUserRepository(testDbInstance);
+    repository = new DrizzleUserRepository({ db: testDbInstance }); 
   });
 
   afterEach(() => {

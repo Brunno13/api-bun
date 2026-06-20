@@ -5,7 +5,10 @@ import { User } from "../../core/domain/user";
 import { BunSQLiteDatabase } from "drizzle-orm/bun-sqlite";
 
 export class DrizzleUserRepository implements UserRepository {
-  constructor(private db: BunSQLiteDatabase) {}
+  private db: BunSQLiteDatabase;
+  constructor(deps: { db: BunSQLiteDatabase }) {
+    this.db = deps.db;
+  }
 
   private mapToDomain(data: any): User | null {
     if (!data) return null;

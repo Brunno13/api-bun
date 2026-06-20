@@ -57,8 +57,8 @@ describe("Presentation Layer - User Routes", () => {
       );
     `);
 
-    const repository = new DrizzleUserRepository(testDbInstance);
-    testUserManager = new UserManager(repository);
+    const repository = new DrizzleUserRepository({ db: testDbInstance });
+    testUserManager = new UserManager({ userRepository: repository });
 
     const testContainer = createContainer();
     testContainer.register({

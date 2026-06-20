@@ -5,7 +5,7 @@ import { UserManager } from "./core/usecases/userManager";
 
 export const setupContainer = () => {
   const container = createContainer({
-    injectionMode: InjectionMode.CLASSIC,
+    injectionMode: InjectionMode.PROXY,
   });
 
   container.register({
