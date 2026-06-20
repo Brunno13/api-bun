@@ -3,7 +3,7 @@ WORKDIR /app
 
 FROM base AS builder
 
-COPY package.json bun.lockb ./
+COPY package.json bun.lock* bun.lockb* ./
 RUN bun install --frozen-lockfile
 
 FROM base AS release
