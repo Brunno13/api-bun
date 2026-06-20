@@ -8,6 +8,18 @@ export const userRoutes = (di: AwilixContainer) => {
   const userManager = di.resolve<UserManager>("userManager");
 
   return new Elysia({ prefix: "/users" })
+    .guard({
+      async beforeHandle({ request, set }) {
+        const session = await auth.api.getSession({
+          headers: request.headers,
+        });
+
+        if (!session) {
+          set.status = 401;
+          return { error: "Não autorizado. Faça login primeiro." };
+        }
+      },
+    })
     .post(
       "/",
       async ({ body }) => {
@@ -19,17 +31,19 @@ export const userRoutes = (di: AwilixContainer) => {
           age: z.number().int().positive(),
           email: z.string().email(),
         }),
+        detail: {
+          tags: ["Usuários"],
+          summary: "Adiciona usuário",
+        },
       },
     )
-    .get("/", async ({ request, set }) => {
-      const session = await auth.api.getSession({
-        headers: request.headers,
-      });
-      if (!session) {
-        set.status = 401;
-        return { error: "Não autorizado. Faça login primeiro." };
-      }
+    .get("/", async () => {
       return await userManager.findAll();
+    }, {
+      detail: {
+        tags: ["Usuários"],
+        summary: "Lista todos os usuários",
+      }
     })
     .put(
       "/:email",
@@ -43,6 +57,10 @@ export const userRoutes = (di: AwilixContainer) => {
         body: z.object({
           age: z.number().int().positive(),
         }),
+        detail: {
+          tags: ["Usuários"],
+          summary: "Altera a idade do usuário",
+        },
       },
     )
     .delete(
@@ -58,6 +76,10 @@ export const userRoutes = (di: AwilixContainer) => {
       },
       {
         params: z.object({ email: z.string().email() }),
+        detail: {
+          tags: ["Usuários"],
+          summary: "Deleta usuário",
+        },
       },
     );
 };
