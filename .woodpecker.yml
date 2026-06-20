@@ -11,7 +11,7 @@ clone:
 
 steps:
   # =========================================================
-  # FASE 1: Testes e Build (Sempre roda para garantir a integridade)
+  # FASE 1: Testes e Build
   # =========================================================
   - name: testar-codigo
     image: oven/bun:alpine
@@ -21,21 +21,27 @@ steps:
       - echo "Executando a suíte de testes..."
       - bun test
 
+  # Otimização: Agora este passo só roda quando uma TAG é criada
   - name: build-executaveis
     image: oven/bun:alpine
     commands:
+      - echo "Criando diretório para os binários..."
+      #- mkdir -p ./bin
+      
       - echo "Compilando executáveis standalone (Linux, Windows, MacOS)..."
-      # IMPORTANTE: Se o seu ponto de entrada não for src/index.ts, altere os caminhos abaixo.
-      - bun build ./src/index.ts --compile --target=bun-linux-x64 --outfile=api-bun-linux
-      - bun build ./src/index.ts --compile --target=bun-windows-x64 --outfile=api-bun-windows.exe
-      - bun build ./src/index.ts --compile --target=bun-darwin-x64 --outfile=api-bun-macos
+      # Redirecionamos o --outfile para a nova pasta ./bin
+      - bun build ./src/index.ts --compile --target=bun-linux-x64 --outfile=./HDD4TB/torrent/api-bun-linux
+      - bun build ./src/index.ts --compile --target=bun-windows-x64 --outfile=./HDD4TB/torrent/api-bun-windows.exe
+      - bun build ./src/index.ts --compile --target=bun-darwin-x64 --outfile=./HDD4TB/torrent/api-bun-macos
+    when:
+      - event: tag
 
   - name: build-imagem-docker
     image: docker:cli
     volumes:
       - /var/run/docker.sock:/var/run/docker.sock
     commands:
-      - echo "Testes e binários aprovados! Atualizando a imagem api-bun:latest..."
+      - echo "Atualizando a imagem Docker api-bun:latest..."
       - docker build -t api-bun:latest .
 
   # =========================================================
@@ -73,46 +79,33 @@ steps:
       GITEA_TOKEN:
         from_secret: gitea_token
     commands:
-      - echo "Preparando ambiente para gerar Changelog..."
       - apk add --no-cache curl git jq
-      - echo "Sincronizando o histórico completo para conectar o gráfico..."
-      - git config remote.origin.fetch "+refs/heads/*:refs/remotes/origin/*"
-      - git fetch --all --unshallow || git fetch --all
-      - git fetch --tags
-      - echo "Calculando a diferença entre as tags..."
-      - PREV_TAG=$(git describe --tags --abbrev=0 HEAD^ 2>/dev/null || echo "")
       - |
+        git config remote.origin.fetch "+refs/heads/*:refs/remotes/origin/*"
+        git fetch --all --unshallow || git fetch --all
+        git fetch --tags
+        PREV_TAG=$(git describe --tags --abbrev=0 HEAD^ 2>/dev/null || echo "")
+        
         if [ -z "$PREV_TAG" ]; then
           CHANGELOG=$(git log --pretty=format:"- %h %s")
         else
           CHANGELOG=$(git log --pretty=format:"- %h %s" $PREV_TAG..HEAD)
         fi
-      - echo "Construindo payload JSON dinâmico..."
-      - |
-        JSON_PAYLOAD=$(jq -n \
-          --arg tag "${CI_COMMIT_TAG}" \
-          --arg name "Versão ${CI_COMMIT_TAG}" \
-          --arg body "🚀 Deploy automático realizado com sucesso pelo Woodpecker CI.
-          
+        
+        JSON_PAYLOAD=$(jq -n --arg tag "${CI_COMMIT_TAG}" --arg name "Versão ${CI_COMMIT_TAG}" --arg body "🚀 Deploy automático realizado com sucesso pelo Woodpecker CI. 
+
         ---
 
         ### 🔄 Histórico de Commits
-        $CHANGELOG" \
-          '{tag_name: $tag, name: $name, body: $body}')
-      - echo "Enviando Release para o Gitea..."
-      - "RESPONSE=$(curl -s -X POST \"http://192.168.31.215:3099/api/v1/repos/${CI_REPO_OWNER}/${CI_REPO_NAME}/releases\" -H \"accept: application/json\" -H \"Authorization: token $GITEA_TOKEN\" -H \"Content-Type: application/json\" -d \"$JSON_PAYLOAD\")"
-      - RELEASE_ID=$(echo "$RESPONSE" | jq -r '.id')
-      - |
-        if [ "$RELEASE_ID" == "null" ] || [ -z "$RELEASE_ID" ]; then
-          echo "Erro ao criar release" && exit 1
-        fi
-      - echo "Fazendo upload dos binários..."
-      - | 
-        curl -s -X POST "http://192.168.31.215:3099/api/v1/repos/${CI_REPO_OWNER}/${CI_REPO_NAME}/releases/$RELEASE_ID/assets?name=api-bun-linux" -H "Authorization: token $GITEA_TOKEN" -F "attachment=@api-bun-linux"
-      - |
-        curl -s -X POST "http://192.168.31.215:3099/api/v1/repos/${CI_REPO_OWNER}/${CI_REPO_NAME}/releases/$RELEASE_ID/assets?name=api-bun-windows.exe" -H "Authorization: token $GITEA_TOKEN" -F "attachment=@api-bun-windows.exe"
-      - |
-        curl -s -X POST "http://192.168.31.215:3099/api/v1/repos/${CI_REPO_OWNER}/${CI_REPO_NAME}/releases/$RELEASE_ID/assets?name=api-bun-macos" -H "Authorization: token $GITEA_TOKEN" -F "attachment=@api-bun-macos"
+        $CHANGELOG" '{tag_name: $tag, name: $name, body: $body}')
+        
+        RESPONSE=$(curl -s -X POST "http://192.168.31.215:3099/api/v1/repos/${CI_REPO_OWNER}/${CI_REPO_NAME}/releases" -H "accept: application/json" -H "Authorization: token $GITEA_TOKEN" -H "Content-Type: application/json" -d "$JSON_PAYLOAD")
+        RELEASE_ID=$(echo "$RESPONSE" | jq -r '.id')
+        
+        # Ajustamos o caminho dos arquivos (attachment=@./bin/...) para buscar na nova pasta
+        curl -s -X POST "http://192.168.31.215:3099/api/v1/repos/${CI_REPO_OWNER}/${CI_REPO_NAME}/releases/$RELEASE_ID/assets?name=api-bun-linux" -H "Authorization: token $GITEA_TOKEN" -F "attachment=@./bin/api-bun-linux"
+        curl -s -X POST "http://192.168.31.215:3099/api/v1/repos/${CI_REPO_OWNER}/${CI_REPO_NAME}/releases/$RELEASE_ID/assets?name=api-bun-windows.exe" -H "Authorization: token $GITEA_TOKEN" -F "attachment=@./bin/api-bun-windows.exe"
+        curl -s -X POST "http://192.168.31.215:3099/api/v1/repos/${CI_REPO_OWNER}/${CI_REPO_NAME}/releases/$RELEASE_ID/assets?name=api-bun-macos" -H "Authorization: token $GITEA_TOKEN" -F "attachment=@./bin/api-bun-macos"
     when:
       - event: tag
 
