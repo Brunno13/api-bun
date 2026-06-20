@@ -59,7 +59,7 @@ steps:
   # FASE 3: Produção (Roda APENAS quando uma Tag de versão é criada)
   # =========================================================
   - name: gerar-release-notes
-    image: woodpeckerci/plugin-gitea-release
+    image: woodpeckerci/plugin-release
     extra_hosts:
       - "gitea.brunnoserver.duckdns.org:192.168.31.215"
     settings:
