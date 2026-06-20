@@ -1,12 +1,13 @@
 import { User } from "./user";
 
 export interface UserRepository {
-  create(data: Omit<User, "id">): Promise<User>;
+  create(data: Omit<User, "id">): Promise<User | null>;
   findById(id: number): Promise<User | null>;
-  update(id: number, data: Partial<Omit<User, "id">>): Promise<User>;
-  delete(id: number): Promise<boolean>;
   findByEmail(email: string): Promise<User | null>;
-  updateByEmail(email: string, data: Partial<Omit<User, "id">>): Promise<User>;
+  update(id: number, data: Partial<Omit<User, "id">>): Promise<User | null>;
+  updateByEmail(email: string, data: Partial<Omit<User, "id">>): Promise<User | null>;
+  delete(id: number): Promise<boolean>;
   deleteByEmail(email: string): Promise<boolean>;
-  findAll(): Promise<User[]>;
+  
+  findAll(): Promise<User[]>; 
 }

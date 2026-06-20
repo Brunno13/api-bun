@@ -2,20 +2,17 @@ import { describe, it, expect, beforeEach, afterEach } from "bun:test";
 import { DrizzleUserRepository } from "./userRepository";
 import { drizzle } from "drizzle-orm/bun-sqlite";
 import { Database } from "bun:sqlite";
+import { BunSQLiteDatabase } from "drizzle-orm/bun-sqlite";
 
 describe("DrizzleUserRepository Infrastructure Tests", () => {
   let testDb: Database;
-  let testDbInstance: any;
+  let testDbInstance: BunSQLiteDatabase;
   let repository: DrizzleUserRepository;
 
   beforeEach(async () => {
-    // Criar um banco de dados em memória usando a API nativa do Bun
     testDb = new Database(":memory:");
-    
-    // Inicializar o Drizzle com o banco em memória
     testDbInstance = drizzle(testDb);
     
-    // Criar a tabela manualmente usando o método .exec() do bun:sqlite
     testDb.exec(`
       CREATE TABLE users (
         id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -36,16 +33,17 @@ describe("DrizzleUserRepository Infrastructure Tests", () => {
     const userData = { name: "John Doe", email: "john@test.com", age: 30 };
     const result = await repository.create(userData);
 
-    expect(result).toHaveProperty("id");
-    expect(result.name).toBe(userData.name);
-    expect(result.email).toBe(userData.email);
+    expect(result).not.toBeNull();
+    expect(result!).toHaveProperty("id");
+    expect(result!.name).toBe(userData.name);
+    expect(result!.email).toBe(userData.email);
   });
 
   it("should find a user by ID", async () => {
     const userData = { name: "Jane Doe", email: "jane@test.com", age: 25 };
     const created = await repository.create(userData);
 
-    const found = await repository.findById(created.id);
+    const found = await repository.findById(created!.id!);
     expect(found).not.toBeNull();
     expect(found?.name).toBe(userData.name);
   });
@@ -68,17 +66,22 @@ describe("DrizzleUserRepository Infrastructure Tests", () => {
     const userData = { name: "Old Name", email: "update@test.com", age: 20 };
     const created = await repository.create(userData);
 
-    const updated = await repository.update(created.id, { name: "New Name" });
-    expect(updated.name).toBe("New Name");
-    expect(updated.id).toBe(created.id);
+    expect(created).not.toBeNull();
+
+    const updated = await repository.update(created!.id!, { name: "New Name" });
+
+    expect(updated).not.toBeNull();
+
+    expect(updated?.name).toBe("New Name");
+    expect(updated?.id).toBe(created!.id);
   });
 
   it("should delete a user by ID", async () => {
     const created = await repository.create({ name: "Delete Me", email: "del@test.com", age: 10 });
-    const deleted = await repository.delete(created.id);
+    const deleted = await repository.delete(created!.id!);
     
     expect(deleted).toBe(true);
-    const found = await repository.findById(created.id);
+    const found = await repository.findById(created!.id!);
     expect(found).toBeNull();
   });
 

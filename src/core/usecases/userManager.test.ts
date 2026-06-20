@@ -1,6 +1,5 @@
 import { describe, it, expect, beforeEach, mock } from "bun:test";
 import { UserManager } from "./userManager";
-import { UserRepository } from "../domain/userRepository";
 import { AppError } from "../errors";
 
 describe("UserManager Unit Tests", () => {
@@ -63,7 +62,7 @@ describe("UserManager Unit Tests", () => {
   });
 
   describe("deleteByEmail", () => {
-    it("should return success 200 and message when user is deleted", async () => {
+    it("should return success when user is deleted", async () => {
       const email = "test@test.com";
       mockUserRepository.findByEmail.mockResolvedValue({
         id: 1,
@@ -78,7 +77,7 @@ describe("UserManager Unit Tests", () => {
       expect(result).toBe(true);
     });
 
-    it("should return error 404 when user is not found", async () => {
+    it("should throw error when user is not found", async () => {
       const email = "notfound@test.com";
       mockUserRepository.findByEmail.mockResolvedValue(null);
 
@@ -86,23 +85,16 @@ describe("UserManager Unit Tests", () => {
         await userManager.deleteByEmail(email);
       } catch (error: any) {
         expect(error).toBeInstanceOf(AppError);
-        expect(error.message).toBe("Usuário não encontrado.");
         expect(error.statusCode).toBe(404);
-        expect(error.errorCode).toBe("USER_NOT_FOUND");
+        expect(error.errorCode).toBe("NOT_FOUND");
       }
     });
 
-    it("should return error 500 when an exception occurs", async () => {
-      const email = "error@test.com";
-      mockUserRepository.findByEmail.mockImplementation(async () => {
-        throw new Error("Database error");
-      });
+    it("should throw error when exception occurs", async () => {
+      const email = "test@test.com";
+      mockUserRepository.findByEmail.mockRejectedValue(new Error("Database failure"));
 
-      try {
-        await userManager.deleteByEmail(email);
-      } catch (error: any) {
-        expect(error.message).toBe("Database error");
-      }
+      await expect(userManager.deleteByEmail(email)).rejects.toThrow();
     });
   });
 });

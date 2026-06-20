@@ -1,27 +1,40 @@
-import { describe, it, expect, beforeEach, afterAll } from "bun:test";
+import { describe, it, expect, beforeEach, afterEach } from "bun:test";
 import { createApp } from "./routes";
-import { db } from "../infrastructure/db";
-import { users } from "../infrastructure/db/schema";
-import { eq } from "drizzle-orm";
 import { UserManager } from "../core/usecases/userManager";
 import { DrizzleUserRepository } from "../infrastructure/repositories/userRepository";
+import { drizzle } from "drizzle-orm/bun-sqlite";
+import { Database } from "bun:sqlite";
+import { BunSQLiteDatabase } from "drizzle-orm/bun-sqlite";
 
 const BASE_URL = "http://localhost";
 
 describe("Presentation Layer - API Routes (Isolated Tests)", () => {
   let testApp: any;
   let testUserManager: UserManager;
+  let testDb: Database;
+  let testDbInstance: BunSQLiteDatabase;
 
   beforeEach(async () => {
-    await db.delete(users);
-    const repository = new DrizzleUserRepository(db);
+    testDb = new Database(":memory:");
+    testDbInstance = drizzle(testDb);
+
+    testDb.exec(`
+      CREATE TABLE users (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        name TEXT NOT NULL,
+        email TEXT NOT NULL UNIQUE,
+        age INTEGER NOT NULL
+      );
+    `);
+
+    const repository = new DrizzleUserRepository(testDbInstance);
     testUserManager = new UserManager(repository);
 
     testApp = createApp(testUserManager);
   });
 
-  afterAll(async () => {
-    await db.delete(users);
+  afterEach(() => {
+    testDb.close();
   });
 
   it("GET / should return the online message", async () => {
