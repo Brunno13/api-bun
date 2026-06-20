@@ -1,9 +1,16 @@
 import { Elysia } from "elysia";
+import { opentelemetry } from "@elysiajs/opentelemetry";
+import { BatchSpanProcessor } from "@opentelemetry/sdk-trace-node";
+import { OTLPTraceExporter } from "@opentelemetry/exporter-trace-otlp-http";
 import { z } from "zod";
 import { openapi } from "@elysia/openapi";
 import { container } from "../container";
 import { UserManager } from "../core/usecases/userManager";
 import { AppError } from "../core/errors";
+
+const traceExporter = new OTLPTraceExporter({
+  url: "http://jaeger:4318/v1/traces", 
+});
 
 export const createApp = (userManager: UserManager) => {
   return new Elysia()
