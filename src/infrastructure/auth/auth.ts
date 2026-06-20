@@ -5,6 +5,7 @@ import { eq } from "drizzle-orm";
 import { db } from "../db/db";
 import * as schema from "../db/schema";
 import { UserRole } from "../../core/messages/messages";
+import { logger } from "../../core/utils/logger";
 
 export const auth = betterAuth({
   baseURL: process.env.BETTER_AUTH_URL || "http://localhost:3000",
@@ -41,7 +42,7 @@ export const seedAdmin = async () => {
     const existingAdmin = await db.select().from(schema.user).where(eq(schema.user.email, "admin@admin.com"));
     
     if (existingAdmin.length === 0) {
-      console.log("🌱 Semeando usuário administrador padrão...");
+      logger.info("🌱 Semeando usuário administrador padrão...");
       
       const response = await auth.api.signUpEmail({
         body: {
@@ -54,12 +55,12 @@ export const seedAdmin = async () => {
       });
       
       if (response && response.user) {
-        console.log("✅ Admin criado! (E-mail: admin@admin.com | Senha: admin1234)");
+        logger.info("✅ Admin criado! (E-mail: admin@admin.com | Senha: admin1234)");
       } else {
-        console.error("❌ O Better Auth não conseguiu criar o usuário. Resposta:", response);
+        logger.error({ response }, "❌ O Better Auth não conseguiu criar o usuário.");
       }
     }
   } catch (error) {
-    console.error("❌ Erro fatal ao criar o administrador padrão:", error);
+    logger.error({ err: error }, "❌ Erro fatal ao criar o administrador padrão.");
   }
 };

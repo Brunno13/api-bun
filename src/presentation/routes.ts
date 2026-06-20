@@ -9,6 +9,7 @@ import { AwilixContainer } from "awilix";
 import { AppError } from "../core/errors/appError"; 
 import { MESSAGES, ErrorCode, HttpStatus, AppEnv, FrameworkErrorCode } from "../core/messages/messages";
 import { userRoutes } from "./routes/user.routes";
+import { logger } from "../core/utils/logger";
 
 const exporterUrl =
   process.env.OTEL_EXPORTER_URL || "http://localhost:4318/v1/traces";
@@ -32,7 +33,7 @@ export const createApp = async (di: AwilixContainer) => {
     }
   } catch (error) {
     if (process.env.NODE_ENV !== AppEnv.TEST) {
-      console.warn(MESSAGES.SYSTEM.OPENAPI_GENERATION_FAILED, error);
+      logger.warn({ err: error }, MESSAGES.SYSTEM.OPENAPI_GENERATION_FAILED);
     }
   }
 
@@ -62,7 +63,7 @@ export const createApp = async (di: AwilixContainer) => {
       { detail: { hide: true } }
     )
     .get("/", () => MESSAGES.SYSTEM.API_ONLINE)
-    .onError(({ code, error, set }) => {
+    .onError(({ code, error, set, request }) => {
       const err = error as any;
 
       if (error instanceof AppError || err?.isAppError || err?.name === "AppError") {
@@ -86,7 +87,11 @@ export const createApp = async (di: AwilixContainer) => {
         };
       }
 
-      console.error(MESSAGES.SYSTEM.FATAL_ERROR_LOG, error);
+      logger.error({ 
+        err: error, 
+        route: request.url,
+        method: request.method
+      }, MESSAGES.SYSTEM.FATAL_ERROR_LOG);
       
       set.status = HttpStatus.INTERNAL_SERVER_ERROR;
       return {
