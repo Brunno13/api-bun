@@ -1,44 +1,83 @@
 when:
   - event: push
     branch: main
+  - event: tag
 
 steps:
+  # ---------------------------------------------------------
+  # FASE 1: Testes e Build (Sempre roda)
+  # ---------------------------------------------------------
   - name: testar-codigo
     image: oven/bun:alpine
     commands:
-      - echo "Instalando dependências para os testes..."
       - bun install
-      - echo "Executando a suíte de testes..."
       - bun test
 
-  - name: deploy-elysia
+  - name: build-imagem-docker
     image: docker:cli
     volumes:
       - /var/run/docker.sock:/var/run/docker.sock
-
-    environment:
-      BETTER_AUTH_SECRET:
-        from_secret: better_auth_secret
     commands:
-      - echo "Testes aprovados! Iniciando build da API..."
       - docker build -t api-bun:latest .
 
-      - echo "Limpando versão anterior..."
-      - docker rm -f api-bun || true
+  # ---------------------------------------------------------
+  # FASE 2: Staging (Roda apenas na main)
+  # ---------------------------------------------------------
+  - name: deploy-staging
+    image: docker:cli
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock
+    environment:
+      # O nome da stack é a única coisa que fica hardcoded, pois não é sensível
+      CONTAINER_NAME: api-bun-staging
+      # Tudo que é infraestrutura vem do cofre seguro
+      APP_PORT:
+        from_secret: staging_app_port
+      HOST_DATA_PATH:
+        from_secret: staging_host_data_path
+      BETTER_AUTH_URL:
+        from_secret: staging_better_auth_url
+      BETTER_AUTH_SECRET:
+        from_secret: staging_better_auth_secret
+      OTEL_EXPORTER_URL:
+        from_secret: staging_otel_exporter_url
+    commands:
+      - docker compose -p api-bun-staging up -d
+    when:
+      - event: push
+        branch: main
 
-      - echo "Subindo o novo servidor Elysia com Better Auth..."
-      - >
-        docker run -d
-        --name api-bun
-        -p 3003:3000
-        -v /opt/api-bun/data:/app/data
-        -e DATABASE_URL=/app/data/sqlite.db
-        -e DO_NOT_TRACK=1
-        -e OTEL_SERVICE_NAME=api-bun
-        -e OTEL_EXPORTER_URL=http://192.168.31.215:4318/v1/traces
-        -e BETTER_AUTH_SECRET=$BETTER_AUTH_SECRET
-        -e BETTER_AUTH_URL=http://api-bun.brunnoserver.duckdns.org
-        --restart unless-stopped
-        api-bun:latest
+  # ---------------------------------------------------------
+  # FASE 3: Produção (Roda apenas na Tag)
+  # ---------------------------------------------------------
+  - name: gerar-release-notes
+    image: woodpeckerci/plugin-gitea-release
+    settings:
+      base_url: http://gitea.brunnoserver.duckdns.org
+      api_key:
+        from_secret: gitea_token
+      note: "🚀 Deploy automático realizado pelo Woodpecker CI."
+      title: ${CI_COMMIT_TAG}
+    when:
+      - event: tag
 
-      - echo "Deploy concluído com sucesso!"
+  - name: deploy-producao
+    image: docker:cli
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock
+    environment:
+      CONTAINER_NAME: api-bun-prod
+      APP_PORT:
+        from_secret: prod_app_port
+      HOST_DATA_PATH:
+        from_secret: prod_host_data_path
+      BETTER_AUTH_URL:
+        from_secret: prod_better_auth_url
+      BETTER_AUTH_SECRET:
+        from_secret: prod_better_auth_secret
+      OTEL_EXPORTER_URL:
+        from_secret: prod_otel_exporter_url
+    commands:
+      - docker compose -p api-bun-producao up -d
+    when:
+      - event: tag

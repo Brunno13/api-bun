@@ -1,0 +1,25 @@
+version: '3.8'
+
+services:
+  api:
+    image: api-bun:latest
+    # O nome do container muda dinamicamente dependendo do ambiente (Staging ou Prod)
+    container_name: ${CONTAINER_NAME:-api-bun-app}
+    restart: unless-stopped
+    ports:
+      # A porta 3000 interna do container é mapeada para a porta externa definida no Portainer
+      - "${APP_PORT:-3000}:3000"
+    volumes:
+      # Bind Mount: A pasta física do seu servidor (Orange Pi) mapeada para dentro do container.
+      # O SQLite será salvo aqui, facilitando backups e migrações.
+      - ${HOST_DATA_PATH}:/app/data
+    environment:
+      # Variáveis estáticas (comuns a todos os ambientes)
+      - DATABASE_URL=/app/data/sqlite.db
+      - DO_NOT_TRACK=1
+      
+      # Variáveis dinâmicas (injetadas via interface do Portainer)
+      - OTEL_SERVICE_NAME=${OTEL_SERVICE_NAME:-api-bun}
+      - OTEL_EXPORTER_URL=${OTEL_EXPORTER_URL}
+      - BETTER_AUTH_SECRET=${BETTER_AUTH_SECRET}
+      - BETTER_AUTH_URL=${BETTER_AUTH_URL}
