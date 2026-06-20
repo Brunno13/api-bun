@@ -110,11 +110,13 @@ A imagem é construída sobre o runtime **Bun** (oven/bun:alpine). O ecossistema
    bun run dev
    ```
 
-### **Como Executar Testes Automatizados Localmente**
+### **Testes Automatizados**
+
+1. **Como Executar Testes Unitários Localmente**
    ```bash
    bun test
    ```
-   
+
 ---
 
 ## **👑 Acesso Inicial (Admin Padrão)**
