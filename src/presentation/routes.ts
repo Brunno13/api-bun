@@ -63,8 +63,17 @@ export const createApp = async (di: AwilixContainer) => {
       { detail: { hide: true } }
     )
     .get("/", () => MESSAGES.SYSTEM.API_ONLINE)
+    .get("/favicon.ico", () => new Response(null, { status: 204 }))
     .onError(({ code, error, set, request }) => {
       const err = error as any;
+      if (code === FrameworkErrorCode.NOT_FOUND || code === HttpStatus.NOT_FOUND) {
+        set.status = HttpStatus.NOT_FOUND;
+        return {
+          success: false,
+          code: FrameworkErrorCode.NOT_FOUND,
+          message: "A rota solicitada não existe."
+        };
+      }
 
       if (error instanceof AppError || err?.isAppError || err?.name === "AppError") {
         set.status = err.statusCode || HttpStatus.BAD_REQUEST;
