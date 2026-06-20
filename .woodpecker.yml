@@ -61,7 +61,7 @@ steps:
   - name: gerar-release-notes
     image: woodpeckerci/plugin-release
     settings:
-      base_url: http://192.168.31.215:3099/
+      base_url: http://192.168.31.215:3099
       api_key:
         from_secret: gitea_token
       note: "🚀 Deploy automático realizado com sucesso pelo Woodpecker CI."
