@@ -42,7 +42,7 @@ export const app = new Elysia()
         email: z.string().email(),
       }),
       body: z.object({
-        idade: z.number().int().positive(),
+        age: z.number().int().positive(),
       }),
     },
   )
