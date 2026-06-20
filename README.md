@@ -110,9 +110,9 @@ A imagem é construída sobre o runtime **Bun** (oven/bun:alpine). O ecossistema
    bun run dev
    ```
 
-### **Testes Automatizados**
+## **✅ Testes Automatizados**
 
-1. **Como Executar Testes Unitários Localmente**
+1. **Executar Testes Unitários Localmente:**
    ```bash
    bun test
    ```
