@@ -64,8 +64,8 @@ Porta de entrada HTTP. Traduz requisições para os Casos de Uso.
 Este projeto possui uma esteira de deploy 100% automatizada através do **Woodpecker CI** e **Gitea**, dividida em dois ambientes isolados.
 
 ### Ambientes
-1.  **Homologação (Staging):** Atualizado automaticamente a cada `push` na branch `main`. Ideal para testes contínuos de integração.
-2.  **Produção:** Atualizado exclusivamente mediante a criação de uma **Tag de Versão** (ex: `v1.0.0`). O pipeline gera automaticamente as *Release Notes* no repositório.
+* **Homologação (Staging):** Atualizado automaticamente a cada `push` na branch `main`. Ideal para testes contínuos de integração.
+* **Produção:** Atualizado exclusivamente mediante a criação de uma **Tag de Versão** (ex: `v1.0.0`). O pipeline gera automaticamente as *Release Notes* no repositório.
 
 ### Ciclo de Vida do Container
 A imagem é construída sobre o runtime **Bun** (`oven/bun:alpine`). O ecossistema é gerenciado via Docker Compose, utilizando volumes mapeados (ex: `/opt/api-bun/data`) para persistência do banco de dados SQLite. As credenciais e portas de cada ambiente são blindadas e injetadas via *Secrets* do CI/CD.
