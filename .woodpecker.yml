@@ -11,7 +11,7 @@ clone:
 
 steps:
   # =========================================================
-  # FASE 1: Testes e Build
+  # FASE 1: Test and Build
   # =========================================================
   - name: testar-codigo
     image: oven/bun:alpine
@@ -79,8 +79,8 @@ steps:
     commands:
       - apk add --no-cache curl git jq
       - |
-        set -e # Aborta o script instantaneamente se qualquer comando falhar
-        set -x # Imprime cada linha no log antes de executar (Modo Debug)
+        set -e
+        set -x
         
         git config remote.origin.fetch "+refs/heads/*:refs/remotes/origin/*"
         git fetch --all --unshallow || git fetch --all
@@ -94,11 +94,15 @@ steps:
           CHANGELOG=$(git log --pretty=format:"- %h %s" $PREV_TAG..HEAD)
         fi
         
-        JSON_PAYLOAD=$(jq -n --arg tag "${CI_COMMIT_TAG}" --arg name "Versão ${CI_COMMIT_TAG}" --arg body "🚀 Deploy automático realizado com sucesso pelo Woodpecker CI. 
+        RELEASE_BODY="🚀 Deploy automático realizado com sucesso pelo Woodpecker CI. 
         
         ---
         
-        $CHANGELOG" '{tag_name: $tag, name: $name, body: $body}')
+        $CHANGELOG"
+        
+        echo "$RELEASE_BODY" > .release_body.txt
+        
+        JSON_PAYLOAD=$(jq -n --arg tag "${CI_COMMIT_TAG}" --arg name "Versão ${CI_COMMIT_TAG}" --arg body "$RELEASE_BODY" '{tag_name: $tag, name: $name, body: $body}')
         
         echo "=== ENVIANDO RELEASE PARA O GITEA ==="
         RESPONSE=$(curl -s -X POST "http://192.168.31.215:3099/api/v1/repos/${CI_REPO_OWNER}/${CI_REPO_NAME}/releases" -H "accept: application/json" -H "Authorization: token $GITEA_TOKEN" -H "Content-Type: application/json" -d "$JSON_PAYLOAD")
@@ -116,9 +120,7 @@ steps:
         
         echo "=== INICIANDO UPLOAD DOS ANEXOS ==="
         curl -f -s -X POST "http://192.168.31.215:3099/api/v1/repos/${CI_REPO_OWNER}/${CI_REPO_NAME}/releases/$RELEASE_ID/assets?name=api-bun-linux" -H "Authorization: token $GITEA_TOKEN" -F "attachment=@./bin/api-bun-linux"
-        
         curl -f -s -X POST "http://192.168.31.215:3099/api/v1/repos/${CI_REPO_OWNER}/${CI_REPO_NAME}/releases/$RELEASE_ID/assets?name=api-bun-windows.exe" -H "Authorization: token $GITEA_TOKEN" -F "attachment=@./bin/api-bun-windows.exe"
-        
         curl -f -s -X POST "http://192.168.31.215:3099/api/v1/repos/${CI_REPO_OWNER}/${CI_REPO_NAME}/releases/$RELEASE_ID/assets?name=api-bun-macos" -H "Authorization: token $GITEA_TOKEN" -F "attachment=@./bin/api-bun-macos"
         
         echo "✅ DEPLOY FINALIZADO COM SUCESSO NO GITEA!"
@@ -153,7 +155,13 @@ steps:
         echo "=== CRIANDO RELEASE NO GITHUB ==="
         GITHUB_API_URL="https://api.github.com/repos/$GITHUB_USER/api-bun/releases"
         
-        JSON_PAYLOAD=$(jq -n --arg tag "${CI_COMMIT_TAG}" --arg name "Versão ${CI_COMMIT_TAG}" --arg body "🚀 Lançamento automatizado sincronizado a partir do servidor Gitea interno." '{tag_name: $tag, name: $name, body: $body}')
+        if [ -f .release_body.txt ]; then
+          RELEASE_BODY=$(cat .release_body.txt)
+        else
+          RELEASE_BODY="🚀 Lançamento automatizado sincronizado a partir do servidor Gitea interno."
+        fi
+        
+        JSON_PAYLOAD=$(jq -n --arg tag "${CI_COMMIT_TAG}" --arg name "Versão ${CI_COMMIT_TAG}" --arg body "$RELEASE_BODY" '{tag_name: $tag, name: $name, body: $body}')
         
         RESPONSE=$(curl -s -X POST $GITHUB_API_URL \
           -H "Accept: application/vnd.github+json" \
