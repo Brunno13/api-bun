@@ -26,9 +26,9 @@ steps:
     commands:
       - echo "Compilando executáveis standalone (Linux, Windows, MacOS)..."
       # IMPORTANTE: Se o seu ponto de entrada não for src/index.ts, altere os caminhos abaixo.
-      - bun build ./src/index.ts --compile --target=bun-linux-x64 --outfile=api-bun-linux
-      - bun build ./src/index.ts --compile --target=bun-windows-x64 --outfile=api-bun-windows.exe
-      - bun build ./src/index.ts --compile --target=bun-darwin-x64 --outfile=api-bun-macos
+      - bun build ./src/index.ts --compile --target=bun-linux-x64 --outfile=api-bun-linux --external=kysely --external=@better-auth/kysely-adapter
+      - bun build ./src/index.ts --compile --target=bun-windows-x64 --outfile=api-bun-windows.exe --external=kysely --external=@better-auth/kysely-adapter
+      - bun build ./src/index.ts --compile --target=bun-darwin-x64 --outfile=api-bun-macos --external=kysely --external=@better-auth/kysely-adapter
 
   - name: build-imagem-docker
     image: docker:cli
