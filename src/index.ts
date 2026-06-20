@@ -3,7 +3,7 @@ import { createApp } from "./presentation/routes";
 
 const container = setupContainer();
 
-const app = createApp(container);
+const app = await createApp(container);
 const PORT = process.env.PORT || 3000;
 
 app.listen(PORT, () => {
