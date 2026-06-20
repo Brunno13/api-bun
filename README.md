@@ -76,4 +76,4 @@ Para o funcionamento correto no Docker, certifique-se de que:
   ```bash
   bun run dev
   ```
-O servidor estará disponível em `http://localhost:3000`.
+O servidor estará disponível em `http://localhost:3000`. 
