@@ -3,9 +3,11 @@ import { user } from "../db/schema";
 import { UserRepository } from "../../core/domain/userRepository";
 import { User } from "../../core/domain/user";
 import { BunSQLiteDatabase } from "drizzle-orm/bun-sqlite";
+import { UserRole } from "../../core/messages/messages";
 
 export class DrizzleUserRepository implements UserRepository {
   private db: BunSQLiteDatabase;
+  
   constructor(deps: { db: BunSQLiteDatabase }) {
     this.db = deps.db;
   }
@@ -14,9 +16,10 @@ export class DrizzleUserRepository implements UserRepository {
     if (!data) return null;
     return {
       id: data.id,
-      name: data.name || "N/A",
-      email: data.email || "",
-      age: data.age || 0,
+      name: data.name ?? "N/A",
+      email: data.email ?? "",
+      age: data.age ?? 0,
+      role: (data.role as UserRole) ?? UserRole.VIEWER,
     };
   }
 
@@ -30,6 +33,7 @@ export class DrizzleUserRepository implements UserRepository {
         name: data.name,
         email: data.email,
         age: data.age,
+        role: data.role ?? UserRole.VIEWER, 
         emailVerified: false,
         createdAt: now,
         updatedAt: now,
@@ -52,22 +56,6 @@ export class DrizzleUserRepository implements UserRepository {
     return result.length > 0 ? this.mapToDomain(result[0]) : null;
   }
 
-  async update(
-    id: string,
-    data: Partial<Omit<User, "id">>,
-  ): Promise<User | null> {
-    const result = await this.db
-      .update(user)
-      .set({
-        ...data,
-        updatedAt: new Date(),
-      })
-      .where(eq(user.id, id))
-      .returning();
-
-    return result.length > 0 ? this.mapToDomain(result[0]) : null;
-  }
-
   async updateByEmail(
     email: string,
     data: Partial<Omit<User, "id">>,
@@ -84,14 +72,13 @@ export class DrizzleUserRepository implements UserRepository {
     return result.length > 0 ? this.mapToDomain(result[0]) : null;
   }
 
-  async delete(id: string): Promise<boolean> {
-    await this.db.delete(user).where(eq(user.id, id));
-    return true;
-  }
-
   async deleteByEmail(email: string): Promise<boolean> {
-    await this.db.delete(user).where(eq(user.email, email));
-    return true;
+    const result = await this.db
+      .delete(user)
+      .where(eq(user.email, email))
+      .returning();
+      
+    return result.length > 0;
   }
 
   async findAll(): Promise<User[]> {
@@ -99,6 +86,6 @@ export class DrizzleUserRepository implements UserRepository {
 
     return result
       .map((item) => this.mapToDomain(item))
-      .filter((user): user is User => user !== null);
+      .filter((u): u is User => u !== null);
   }
 }

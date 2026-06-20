@@ -1,4 +1,5 @@
 import { sqliteTable, text, integer } from "drizzle-orm/sqlite-core";
+import { UserRole } from "../../core/messages/messages"; // 🔒 Importando o enum de papéis
 
 export const user = sqliteTable("user", {
   id: text("id").primaryKey(),
@@ -7,6 +8,7 @@ export const user = sqliteTable("user", {
   emailVerified: integer("emailVerified", { mode: "boolean" }).notNull(),
   image: text("image"),
   age: integer("age").notNull(),
+  role: text("role").notNull().default(UserRole.VIEWER),
   createdAt: integer("createdAt", { mode: "timestamp" }).notNull(),
   updatedAt: integer("updatedAt", { mode: "timestamp" }).notNull(),
 });

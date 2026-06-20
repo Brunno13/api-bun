@@ -1,5 +1,6 @@
 import { setupContainer } from "./container";
 import { createApp } from "./presentation/routes";
+import { seedAdmin } from "./infrastructure/auth/auth";
 
 const container = setupContainer();
 
@@ -11,3 +12,5 @@ app.listen(PORT, () => {
     `🦊 Elysia está rodando em http://${app.server?.hostname}:${app.server?.port}`,
   );
 });
+
+await seedAdmin();

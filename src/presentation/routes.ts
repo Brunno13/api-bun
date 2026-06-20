@@ -1,4 +1,3 @@
-// src/presentation/routes.ts
 import { Elysia } from "elysia";
 import { auth } from "../infrastructure/auth/auth";
 import { opentelemetry } from "@elysiajs/opentelemetry";
@@ -7,9 +6,8 @@ import { OTLPTraceExporter } from "@opentelemetry/exporter-trace-otlp-http";
 import { z } from "zod";
 import { openapi } from "@elysia/openapi";
 import { AwilixContainer } from "awilix";
-
-import { AppError } from "../core/errors/appError";
-import { MESSAGES, ErrorCode, HttpStatus, AppEnv } from "../core/messages/messages";
+import { AppError } from "../core/errors/appError"; 
+import { MESSAGES, ErrorCode, HttpStatus, AppEnv, FrameworkErrorCode } from "../core/messages/messages";
 import { userRoutes } from "./routes/user.routes";
 
 const exporterUrl =
@@ -41,9 +39,7 @@ export const createApp = async (di: AwilixContainer) => {
   return new Elysia()
     .use(
       openapi({
-        mapJsonSchema: {
-          zod: z.toJSONSchema,
-        },
+        mapJsonSchema: { zod: z.toJSONSchema },
         documentation: {
           info: {
             title: MESSAGES.OPENAPI.TITLE,
@@ -62,28 +58,23 @@ export const createApp = async (di: AwilixContainer) => {
     )
     .all(
       "/api/auth/*",
-      async ({ request }) => {
-        return auth.handler(request);
-      },
-      {
-        detail: {
-          hide: true,
-        },
-      }
+      async ({ request }) => auth.handler(request),
+      { detail: { hide: true } }
     )
     .get("/", () => MESSAGES.SYSTEM.API_ONLINE)
-    .use(userRoutes(di))
     .onError(({ code, error, set }) => {
-      if (error instanceof AppError) {
-        set.status = error.statusCode;
+      const err = error as any;
+
+      if (error instanceof AppError || err?.isAppError || err?.name === "AppError") {
+        set.status = err.statusCode || HttpStatus.BAD_REQUEST;
         return {
           success: false,
-          code: error.code,
-          message: error.message,
+          code: err.code || "UNKNOWN_APP_ERROR",
+          message: err.message,
         };
       }
 
-      if (code === "VALIDATION") {
+      if (code === FrameworkErrorCode.VALIDATION) {
         set.status = HttpStatus.UNPROCESSABLE_ENTITY;
         return {
           success: false,
@@ -103,5 +94,7 @@ export const createApp = async (di: AwilixContainer) => {
         code: ErrorCode.INTERNAL_SERVER_ERROR,
         message: MESSAGES.ERROR[ErrorCode.INTERNAL_SERVER_ERROR].message,
       };
-    });
+    })
+
+    .use(userRoutes(di));
 };

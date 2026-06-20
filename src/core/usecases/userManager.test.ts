@@ -1,6 +1,7 @@
 import { describe, it, expect, beforeEach, mock } from "bun:test";
 import { UserManager } from "./userManager";
-import { AppError } from "../errors";
+import { AppError } from "../errors/appError";
+import { ErrorCode, HttpStatus, UserRole } from "../messages/messages";
 
 describe("UserManager Unit Tests", () => {
   let userManager: UserManager;
@@ -8,36 +9,20 @@ describe("UserManager Unit Tests", () => {
 
   const MOCK_USER_ID = "mock-uuid-1234-5678";
 
+  const mockUser = {
+    id: MOCK_USER_ID,
+    name: "Test",
+    age: 30,
+    email: "test@test.com",
+    role: UserRole.VIEWER
+  };
+
   beforeEach(() => {
     mockUserRepository = {
-      create: mock().mockResolvedValue({
-        id: MOCK_USER_ID,
-        name: "Test",
-        age: 30,
-        email: "test@test.com",
-      }),
-      findById: mock().mockResolvedValue({
-        id: MOCK_USER_ID,
-        name: "Test",
-        age: 30,
-        email: "test@test.com",
-      }),
-      update: mock().mockResolvedValue({
-        id: MOCK_USER_ID,
-        name: "Test",
-        age: 30,
-        email: "test@test.com",
-      }),
-      delete: mock().mockResolvedValue(true),
-      findAll: mock().mockResolvedValue([
-        { id: MOCK_USER_ID, name: "Test", age: 30, email: "test@test.com" },
-      ]),
-      updateByEmail: mock().mockResolvedValue({
-        id: MOCK_USER_ID,
-        name: "Test",
-        age: 30,
-        email: "test@test.com",
-      }),
+      create: mock().mockResolvedValue(mockUser),
+      findById: mock().mockResolvedValue(mockUser),
+      findAll: mock().mockResolvedValue([mockUser]),
+      updateByEmail: mock().mockResolvedValue(mockUser),
       findByEmail: mock().mockResolvedValue(null),
       deleteByEmail: mock().mockResolvedValue(true),
     };
@@ -47,7 +32,7 @@ describe("UserManager Unit Tests", () => {
   describe("Delegation Methods", () => {
     it("should call userRepository.create", async () => {
       const data = { name: "Test", age: 30, email: "test@test.com" };
-      await userManager.create(data);
+      await userManager.create(data as any);
       expect(mockUserRepository.create).toHaveBeenCalledWith(data);
     });
 
@@ -64,41 +49,52 @@ describe("UserManager Unit Tests", () => {
   });
 
   describe("deleteByEmail", () => {
-    it("should return success when user is deleted", async () => {
+    it("should return true when user is successfully deleted", async () => {
       const email = "test@test.com";
-      mockUserRepository.findByEmail.mockResolvedValue({
-        id: MOCK_USER_ID,
-        name: "Test",
-        age: 30,
-        email,
-      });
       mockUserRepository.deleteByEmail.mockResolvedValue(true);
 
       const result = await userManager.deleteByEmail(email);
 
       expect(result).toBe(true);
+      expect(mockUserRepository.deleteByEmail).toHaveBeenCalledWith(email);
     });
 
-    it("should throw error when user is not found", async () => {
+    it("should throw error when user is not found to delete (returns false)", async () => {
       const email = "notfound@test.com";
-      mockUserRepository.findByEmail.mockResolvedValue(null);
+      mockUserRepository.deleteByEmail.mockResolvedValue(false);
 
       try {
         await userManager.deleteByEmail(email);
       } catch (error: any) {
         expect(error).toBeInstanceOf(AppError);
-        expect(error.statusCode).toBe(404);
-        expect(error.errorCode).toBe("NOT_FOUND");
+        expect(error.statusCode).toBe(HttpStatus.NOT_FOUND);
+        expect(error.code).toBe(ErrorCode.USER_NOT_FOUND);
       }
     });
+  });
 
-    it("should throw error when exception occurs", async () => {
+  describe("updateByEmail", () => {
+    it("should return updated user when successfully updated", async () => {
       const email = "test@test.com";
-      mockUserRepository.findByEmail.mockRejectedValue(
-        new Error("Database failure"),
-      );
+      const data = { age: 35 };
+      mockUserRepository.updateByEmail.mockResolvedValue({ ...mockUser, age: 35 });
 
-      await expect(userManager.deleteByEmail(email)).rejects.toThrow();
+      const result = await userManager.updateByEmail(email, data);
+
+      expect(result.age).toBe(35);
+    });
+
+    it("should throw error when user is not found to update (returns null)", async () => {
+      const email = "notfound@test.com";
+      mockUserRepository.updateByEmail.mockResolvedValue(null);
+
+      try {
+        await userManager.updateByEmail(email, { age: 40 });
+      } catch (error: any) {
+        expect(error).toBeInstanceOf(AppError);
+        expect(error.statusCode).toBe(HttpStatus.NOT_FOUND);
+        expect(error.code).toBe(ErrorCode.USER_NOT_FOUND);
+      }
     });
   });
 });

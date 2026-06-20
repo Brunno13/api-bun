@@ -8,17 +8,32 @@ export enum HttpStatus {
   OK = 200,
   BAD_REQUEST = 400,
   UNAUTHORIZED = 401,
+  FORBIDDEN = 403,
   NOT_FOUND = 404,
   UNPROCESSABLE_ENTITY = 422,
   INTERNAL_SERVER_ERROR = 500,
 }
 
+export enum FrameworkErrorCode {
+  VALIDATION = "VALIDATION",
+  NOT_FOUND = "NOT_FOUND",
+  PARSE = "PARSE",
+  UNKNOWN = "UNKNOWN",
+}
+
 export enum ErrorCode {
   INTERNAL_SERVER_ERROR = "INTERNAL_SERVER_ERROR",
   UNAUTHORIZED = "UNAUTHORIZED",
+  FORBIDDEN = "FORBIDDEN",
   USER_NOT_FOUND = "USER_NOT_FOUND",
   DELETE_FAILED = "DELETE_FAILED",
   INVALID_DATA = "INVALID_DATA",
+}
+
+export enum UserRole {
+  ADMIN = "admin",   // Cria, edita, deleta e lista
+  EDITOR = "editor", // Lista e edita, não cria nem deleta
+  VIEWER = "viewer", // Apenas lista
 }
 
 export const MESSAGES = {
@@ -32,6 +47,7 @@ export const MESSAGES = {
   ERROR: {
     [ErrorCode.INTERNAL_SERVER_ERROR]: { message: "Ocorreu um erro interno no servidor.", status: HttpStatus.INTERNAL_SERVER_ERROR },
     [ErrorCode.UNAUTHORIZED]: { message: "Não autorizado. Faça login primeiro.", status: HttpStatus.UNAUTHORIZED },
+    [ErrorCode.FORBIDDEN]: { message: "Acesso negado. Seu papel não tem permissão para executar esta ação.", status: HttpStatus.FORBIDDEN },
     [ErrorCode.USER_NOT_FOUND]: { message: "Usuário não encontrado.", status: HttpStatus.NOT_FOUND },
     [ErrorCode.DELETE_FAILED]: { message: "Erro ao deletar o usuário. Verifique os dados e tente novamente.", status: HttpStatus.BAD_REQUEST },
     [ErrorCode.INVALID_DATA]: { message: "Os dados fornecidos são inválidos.", status: HttpStatus.UNPROCESSABLE_ENTITY },
@@ -41,7 +57,7 @@ export const MESSAGES = {
     VALIDATION_FALLBACK_DETAIL: "Erro na validação dos campos.",
     API_ONLINE: "A API Elysia + Drizzle está online!",
     FATAL_ERROR_LOG: "🔥 ERRO FATAL:",
-    OPENAPI_GENERATION_FAILED: "⚠️ AVISO: Falha ao gerar o esquema OpenAPI do Better Auth. A documentação pode estar incompleta.",
+    OPENAPI_GENERATION_FAILED: "⚠️ AVISO: Falha ao gerar o esquema OpenAPI do Better Auth.",
   },
 
   DOCS: {

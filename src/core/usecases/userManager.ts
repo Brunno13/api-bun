@@ -1,9 +1,11 @@
-import { User } from "../domain/user";
 import { UserRepository } from "../domain/userRepository";
-import { NotFoundError } from "../errors";
+import { User } from "../domain/user";
+import { AppError } from "../errors/appError";
+import { ErrorCode } from "../messages/messages";
 
 export class UserManager {
   private userRepository: UserRepository;
+
   constructor(deps: { userRepository: UserRepository }) {
     this.userRepository = deps.userRepository;
   }
@@ -13,32 +15,7 @@ export class UserManager {
   }
 
   async getById(id: string): Promise<User | null> {
-    const user = await this.userRepository.findById(id);
-    if (!user) {
-      throw new NotFoundError(`Usuário com ID ${id} não encontrado.`);
-    }
-    return user;
-  }
-
-  async update(
-    id: string,
-    data: Partial<Omit<User, "id">>,
-  ): Promise<User | null> {
-    const existing = await this.userRepository.findById(id);
-    if (!existing) {
-      throw new NotFoundError(`Usuário com ID ${id} não encontrado.`);
-    }
-
-    return this.userRepository.update(id, data);
-  }
-
-  async delete(id: string): Promise<boolean> {
-    const exists = await this.userRepository.findById(id);
-    if (!exists) {
-      throw new NotFoundError(`Usuário com ID ${id} não encontrado.`);
-    }
-
-    return this.userRepository.delete(id);
+    return this.userRepository.findById(id);
   }
 
   async findAll(): Promise<User[]> {
@@ -47,23 +24,24 @@ export class UserManager {
 
   async updateByEmail(
     email: string,
-    data: Partial<Omit<User, "id">> | {},
-  ): Promise<User | null> {
-    const existing = await this.userRepository.findByEmail(email);
-    if (!existing) {
-      throw new NotFoundError(`Usuário com e-mail ${email} não encontrado.`);
+    data: Partial<Omit<User, "id">>,
+  ): Promise<User> {
+    const updatedUser = await this.userRepository.updateByEmail(email, data);
+    
+    if (!updatedUser) {
+      throw new AppError(ErrorCode.USER_NOT_FOUND);
     }
-
-    return this.userRepository.updateByEmail(email, data);
+    
+    return updatedUser;
   }
 
   async deleteByEmail(email: string): Promise<boolean> {
-    const user = await this.userRepository.findByEmail(email);
-    if (!user) {
-      throw new NotFoundError(`Usuário com e-mail ${email} não encontrado.`);
+    const wasDeleted = await this.userRepository.deleteByEmail(email);
+    
+    if (!wasDeleted) {
+      throw new AppError(ErrorCode.USER_NOT_FOUND);
     }
-
-    await this.userRepository.deleteByEmail(email);
+    
     return true;
   }
 }
