@@ -1,6 +1,6 @@
 # API Bun - Clean Architecture Edition
 
-Este projeto é uma API desenvolvida com o runtime **Bun** e o framework **Elysia**, estruturada sob os princípios da **Clean Architecture (Arquitetura Limpa)**. 
+Este projeto é uma API desenvolvida com o runtime **Bun** e o framework **Elysia**, estruturada sob os princípios da **Clean Architecture (Arquitetura Limpa)** e utilizando **Injeção de Dependências**.
 
 A arquitetura foi desenhada para garantir que a lógica de negócio seja independente de ferramentas externas, facilitando manutenções, testes e substituições tecnológicas sem impactar o núcleo do sistema.
 
@@ -8,7 +8,7 @@ A arquitetura foi desenhada para garantir que a lógica de negócio seja indepen
 
 ## 🏗 Arquitetura do Projeto
 
-O projeto é dividido em camadas concêntricas, onde as dependências apontam sempre para dentro (em direção ao centro/core).
+O projeto é dividido em camadas concêntricas, onde as dependências apontam sempre para dentro (em direção ao centro/core). A comunicação entre essas camadas é totalmente orquestrada pelo nosso container de Injeção de Dependência.
 
 ### 1. Camada de Core (`src/core`)
 É o "coração" da aplicação. Esta camada não conhece nada sobre banco de dados, protocolos de rede ou frameworks web. Ela contém apenas a lógica de negócio pura.
@@ -22,8 +22,14 @@ Esta camada lida com detalhes técnicos e ferramentas externas. Ela implementa a
 * **Repositories (`src/infrastructure/repositories`):** Implementam o acesso a dados (neste caso, utilizando **Drizzle ORM**). Se no futuro decidirmos trocar o banco de dados ou o ORM, apenas esta pasta será alterada.
 * **Auth (`src/infrastructure/auth.ts`):** Contém as integrações com sistemas de autenticação (como **Better Auth**), tratando a lógica complexa de sessões e tokens fora do núcleo da aplicação.
 
-### 3. Camada de Apresentação (`src/presentation`)
-É a porta de entrada para o mundo externo. Ela traduz requisições externas (HTTP) em chamadas para os Casos de Uso.
+### 3. Injeção de Dependências (Awilix)
+Em vez das classes instanciarem suas próprias dependências, nós utilizamos o **Awilix** para gerenciar o ciclo de vida dos objetos. 
+
+* O container de DI (Dependency Injection) mapeia as interfaces do `Core` para as implementações reais da `Infrastructure`.
+* Isso permite que a `Apresentação` simplesmente peça um "Caso de Uso", e o Awilix se encarrega de construí-lo injetando automaticamente o repositório correto (ou um *mock* de repositório durante os testes automatizados).
+
+### 4. Camada de Apresentação (`src/presentation`)
+É a porta de entrada para o mundo externo. Ela traduz requisições externas (HTTP) em chamadas para os Casos de Uso que são resolvidos pelo Awilix.
 
 * **Routes (`src/presentation/routes.ts`):** Utiliza o framework **Elysia** para definir endpoints, validar esquemas de entrada com **Zod** e mapear as rotas para as funções correspondentes no core.
 
@@ -33,6 +39,7 @@ Esta camada lida com detalhes técnicos e ferramentas externas. Ela implementa a
 
 * **Runtime:** Bun (Alta performance)
 * **Web Framework:** ElysiaJS
+* **Injeção de Dependências:** Awilix
 * **ORM/Query Builder:** Drizzle ORM
 * **Validação de Dados:** Zod
 * **Autenticação:** Better Auth
@@ -45,6 +52,7 @@ Esta camada lida com detalhes técnicos e ferramentas externas. Ela implementa a
 | :--- | :--- | :--- |
 | `src/core` | Regras de negócio, entidades e lógica central. | TypeScript (Pure) |
 | `src/infrastructure` | Implementação de DB, autenticação e integração externa. | Drizzle, Better Auth |
+| `src/di` (ou `container`) | Configuração e resolução de injeção de dependências. | Awilix |
 | `src/presentation` | Definição de rotas, parsing de JSON e validação HTTP. | Elysia, Zod |
 
 ---
