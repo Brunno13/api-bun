@@ -4,4 +4,5 @@ WORKDIR /app
 RUN echo '{"type":"module"}' > package.json
 COPY server.ts .
 EXPOSE 3000
-CMD ["bun", "run", "server.ts"]
+# Usamos ENTRYPOINT para blindar o comando e impedir que o Docker o ignore
+ENTRYPOINT ["bun", "run", "server.ts"]
