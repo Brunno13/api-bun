@@ -1,6 +1,6 @@
 import { User } from "../domain/user";
 import { UserRepository } from "../domain/userRepository";
-import { ActionResult } from "../types";
+import { AppError } from "../errors";
 
 export class UserManager {
   constructor(private userRepository: UserRepository) {}
@@ -32,29 +32,13 @@ export class UserManager {
     return this.userRepository.updateByEmail(email, data);
   }
 
-  async deleteByEmail(email: string): Promise<ActionResult> {
-    try {
-      const user = await this.userRepository.findByEmail(email);
-      if (!user) {
-        return {
-          success: false,
-          code: 301,
-          message: "Usuário não encontrado.",
-        };
-      }
-
-      await this.userRepository.deleteByEmail(email);
-      return {
-        success: true,
-        code: 200,
-        message: "Usuário deletado com sucesso!",
-      };
-    } catch (error) {
-      return {
-        success: false,
-        code: 500,
-        message: "Erro interno ao processar solicitação.",
-      };
+  async deleteByEmail(email: string): Promise<boolean> {
+    const user = await this.userRepository.findByEmail(email);
+    if (!user) {
+      throw new AppError("Usuário não encontrado.", 404, "USER_NOT_FOUND");
     }
+
+    await this.userRepository.deleteByEmail(email);
+    return true;
   }
 }
