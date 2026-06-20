@@ -173,6 +173,6 @@ describe("Presentation Layer - User Routes", () => {
     expect(response.status).toBe(200);
     const body = await response.json();
     expect(body.success).toBe(true);
-    expect(body.message).toBe("Usuário deletado com sucesso!");
+    expect(body.message).toBe("Usuário deletado com sucesso.");
   });
 });

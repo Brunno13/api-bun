@@ -1,22 +1,24 @@
+// src/presentation/routes/user.routes.ts
 import { Elysia } from "elysia";
 import { z } from "zod";
 import { AwilixContainer } from "awilix";
 import { UserManager } from "../../core/usecases/userManager";
 import { auth } from "../../infrastructure/auth/auth";
+import { AppError } from "../../core/errors/appError";
+import { MESSAGES, ErrorCode } from "../../core/messages/messages";
 
 export const userRoutes = (di: AwilixContainer) => {
   const userManager = di.resolve<UserManager>("userManager");
 
   return new Elysia({ prefix: "/users" })
     .guard({
-      async beforeHandle({ request, set }) {
+      async beforeHandle({ request }) {
         const session = await auth.api.getSession({
           headers: request.headers,
         });
 
         if (!session) {
-          set.status = 401;
-          return { error: "Não autorizado. Faça login primeiro." };
+          throw new AppError(ErrorCode.UNAUTHORIZED);
         }
       },
     })
@@ -32,8 +34,8 @@ export const userRoutes = (di: AwilixContainer) => {
           email: z.string().email(),
         }),
         detail: {
-          tags: ["Usuários"],
-          summary: "Adiciona usuário",
+          tags: [MESSAGES.DOCS.TAGS.USERS],
+          summary: MESSAGES.DOCS.USERS.CREATE,
         },
       },
     )
@@ -41,8 +43,8 @@ export const userRoutes = (di: AwilixContainer) => {
       return await userManager.findAll();
     }, {
       detail: {
-        tags: ["Usuários"],
-        summary: "Lista todos os usuários",
+        tags: [MESSAGES.DOCS.TAGS.USERS],
+        summary: MESSAGES.DOCS.USERS.LIST,
       }
     })
     .put(
@@ -58,8 +60,8 @@ export const userRoutes = (di: AwilixContainer) => {
           age: z.number().int().positive(),
         }),
         detail: {
-          tags: ["Usuários"],
-          summary: "Altera a idade do usuário",
+          tags: [MESSAGES.DOCS.TAGS.USERS],
+          summary: MESSAGES.DOCS.USERS.UPDATE,
         },
       },
     )
@@ -67,18 +69,21 @@ export const userRoutes = (di: AwilixContainer) => {
       "/:email",
       async ({ params }) => {
         const success = await userManager.deleteByEmail(params.email);
+        
+        if (!success) {
+          throw new AppError(ErrorCode.DELETE_FAILED);
+        }
+
         return {
-          success: success,
-          message: success
-            ? "Usuário deletado com sucesso!"
-            : "Erro ao deletar.",
+          success: true,
+          message: MESSAGES.SUCCESS.USER_DELETED,
         };
       },
       {
         params: z.object({ email: z.string().email() }),
         detail: {
-          tags: ["Usuários"],
-          summary: "Deleta usuário",
+          tags: [MESSAGES.DOCS.TAGS.USERS],
+          summary: MESSAGES.DOCS.USERS.DELETE,
         },
       },
     );

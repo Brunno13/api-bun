@@ -1,3 +1,4 @@
+// src/presentation/routes.ts
 import { Elysia } from "elysia";
 import { auth } from "../infrastructure/auth/auth";
 import { opentelemetry } from "@elysiajs/opentelemetry";
@@ -6,8 +7,9 @@ import { OTLPTraceExporter } from "@opentelemetry/exporter-trace-otlp-http";
 import { z } from "zod";
 import { openapi } from "@elysia/openapi";
 import { AwilixContainer } from "awilix";
-import { AppError } from "../core/errors";
 
+import { AppError } from "../core/errors/appError";
+import { MESSAGES, ErrorCode, HttpStatus, AppEnv } from "../core/messages/messages";
 import { userRoutes } from "./routes/user.routes";
 
 const exporterUrl =
@@ -17,13 +19,22 @@ const traceExporter = new OTLPTraceExporter({
 });
 
 export const createApp = async (di: AwilixContainer) => {
-  
-  const authSchema = await auth.api.generateOpenAPISchema();
+  let authPaths: any = {};
+  let authComponents: any = {};
 
-  const authPaths: any = {};
-  if (authSchema && authSchema.paths) {
-    for (const [path, config] of Object.entries(authSchema.paths)) {
-      authPaths[`/api/auth${path}`] = config;
+  try {
+    const authSchema = await auth.api.generateOpenAPISchema();
+    if (authSchema) {
+      authComponents = authSchema.components || {};
+      if (authSchema.paths) {
+        for (const [path, config] of Object.entries(authSchema.paths)) {
+          authPaths[`/api/auth${path}`] = config;
+        }
+      }
+    }
+  } catch (error) {
+    if (process.env.NODE_ENV !== AppEnv.TEST) {
+      console.warn(MESSAGES.SYSTEM.OPENAPI_GENERATION_FAILED, error);
     }
   }
 
@@ -35,11 +46,11 @@ export const createApp = async (di: AwilixContainer) => {
         },
         documentation: {
           info: {
-            title: "API Bun - Clean Architecture",
-            version: "1.0.0",
-            description: "Documentação interativa. Para rotas protegidas, faça o login e clique no botão 'Authorize'.",
+            title: MESSAGES.OPENAPI.TITLE,
+            version: MESSAGES.OPENAPI.VERSION,
+            description: MESSAGES.OPENAPI.DESCRIPTION,
           },
-          components: authSchema?.components as any,
+          components: authComponents as any,
           paths: authPaths,
         },
       }),
@@ -50,32 +61,47 @@ export const createApp = async (di: AwilixContainer) => {
       }),
     )
     .all(
-      "/api/auth/*", 
+      "/api/auth/*",
       async ({ request }) => {
         return auth.handler(request);
-      }, 
+      },
       {
         detail: {
           hide: true,
-        }
+        },
       }
     )
-    .get("/", () => "A API Elysia + Drizzle está online!")
+    .get("/", () => MESSAGES.SYSTEM.API_ONLINE)
     .use(userRoutes(di))
-    .onError(({ error, set }) => {
+    .onError(({ code, error, set }) => {
       if (error instanceof AppError) {
         set.status = error.statusCode;
         return {
           success: false,
+          code: error.code,
           message: error.message,
-          code: error.errorCode,
         };
       }
-      set.status = 500;
+
+      if (code === "VALIDATION") {
+        set.status = HttpStatus.UNPROCESSABLE_ENTITY;
+        return {
+          success: false,
+          code: ErrorCode.INVALID_DATA,
+          message: MESSAGES.ERROR[ErrorCode.INVALID_DATA].message,
+          details: error instanceof Error 
+            ? error.message 
+            : MESSAGES.SYSTEM.VALIDATION_FALLBACK_DETAIL, 
+        };
+      }
+
+      console.error(MESSAGES.SYSTEM.FATAL_ERROR_LOG, error);
+      
+      set.status = HttpStatus.INTERNAL_SERVER_ERROR;
       return {
         success: false,
-        message: "Erro interno ao processar solicitação.",
-        code: "INTERNAL_SERVER_ERROR",
+        code: ErrorCode.INTERNAL_SERVER_ERROR,
+        message: MESSAGES.ERROR[ErrorCode.INTERNAL_SERVER_ERROR].message,
       };
     });
 };
