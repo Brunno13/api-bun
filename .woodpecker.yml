@@ -68,9 +68,7 @@ steps:
       - apk add --no-cache curl git jq
       
       - echo "Sincronizando o histórico completo para conectar o gráfico..."
-      # Configura o Git local para mapear todas as branches corretamente
       - git config remote.origin.fetch "+refs/heads/*:refs/remotes/origin/*"
-      # O --unshallow é a mágica que diz: "baixe o passado inteiro desse commit"
       - git fetch --all --unshallow || git fetch --all
       - git fetch --tags
       
@@ -83,7 +81,8 @@ steps:
           CHANGELOG=$(git log --pretty=format:"- %h %s")
         else
           echo "Tag anterior encontrada: $PREV_TAG. Extraindo commits recentes..."
-          CHANGELOG=$(git log --pretty=format:"- %h %s" ${PREV_TAG}..HEAD)
+          # CORREÇÃO AQUI: Removidas as chaves {} da variável PREV_TAG
+          CHANGELOG=$(git log --pretty=format:"- %h %s" $PREV_TAG..HEAD)
         fi
         
       - echo "Construindo payload JSON dinâmico..."
