@@ -4,7 +4,7 @@ FROM oven/bun:alpine
 WORKDIR /app
 
 # Copia os arquivos de dependência primeiro (aproveita o cache do Docker)
-COPY package.json bun.lockb ./
+COPY package.json bun.lockb* ./
 
 # Instala apenas dependências de produção
 RUN bun install --production
