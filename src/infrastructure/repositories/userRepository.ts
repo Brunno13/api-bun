@@ -2,7 +2,7 @@ import { eq } from "drizzle-orm";
 import { db } from "../db";
 import { users } from "../db/schema";
 import { UserRepository } from "../../core/domain/UserRepository";
-import { User } from "../../core/domain/user";
+import { User } from "../../core/domain/User";
 
 export class DrizzleUserRepository implements UserRepository {
   async create(data: Omit<User, "id">): Promise<User> {

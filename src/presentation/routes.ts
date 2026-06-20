@@ -1,8 +1,8 @@
 import { Elysia } from "elysia";
 import { z } from "zod";
 import { openapi } from "@elysia/openapi";
-import { UserManager } from "../core/usecases/user_manager";
-import { DrizzleUserRepository } from "../infrastructure/repositories/user_repository";
+import { UserManager } from "../core/usecases/userManager";
+import { DrizzleUserRepository } from "../infrastructure/repositories/userRepository";
 
 // Instância do Manager (Injeção de dependência para a camada de apresentação)
 const userManager = new UserManager(new DrizzleUserRepository());

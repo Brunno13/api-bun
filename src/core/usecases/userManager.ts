@@ -1,5 +1,5 @@
 import { User } from "../domain/user";
-import { UserRepository } from "../domain/UserRepository";
+import { UserRepository } from "../domain/userRepository";
 import { ActionResult } from "../types";
 
 export class UserManager {
