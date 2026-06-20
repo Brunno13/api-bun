@@ -42,7 +42,7 @@ Esta camada lida com detalhes técnicos e ferramentas externas. Ela implementa a
 | `src/presentation` | Definição de rotas, parsing de JSON e validação HTTP. | Elysia, Zod |
 ---
 
-## 🚀 Como Executar
+## 🚀 Como Executar 
 
 ## 🐳 Containerização e CI/CD (Docker & Woodpecker)
 
