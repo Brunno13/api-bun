@@ -75,24 +75,18 @@ steps:
     commands:
       - echo "Preparando ambiente para gerar Changelog..."
       - apk add --no-cache curl git jq
-      
       - echo "Sincronizando o histórico completo para conectar o gráfico..."
       - git config remote.origin.fetch "+refs/heads/*:refs/remotes/origin/*"
       - git fetch --all --unshallow || git fetch --all
       - git fetch --tags
-      
       - echo "Calculando a diferença entre as tags..."
       - PREV_TAG=$(git describe --tags --abbrev=0 HEAD^ 2>/dev/null || echo "")
-      
       - |
         if [ -z "$PREV_TAG" ]; then
-          echo "Primeira tag ou tag isolada. Extraindo todos os commits..."
           CHANGELOG=$(git log --pretty=format:"- %h %s")
         else
-          echo "Tag anterior encontrada: $PREV_TAG. Extraindo commits recentes..."
           CHANGELOG=$(git log --pretty=format:"- %h %s" $PREV_TAG..HEAD)
         fi
-        
       - echo "Construindo payload JSON dinâmico..."
       - |
         JSON_PAYLOAD=$(jq -n \
@@ -105,38 +99,17 @@ steps:
         ### 🔄 Histórico de Commits
         $CHANGELOG" \
           '{tag_name: $tag, name: $name, body: $body}')
-          
       - echo "Enviando Release para o Gitea..."
-      # Salvamos a resposta da API em uma variável para extrair o ID
-      - |
-        RESPONSE=$(curl -s -X POST "http://192.168.31.215:3099/api/v1/repos/${CI_REPO_OWNER}/${CI_REPO_NAME}/releases" \
-          -H "accept: application/json" \
-          -H "Authorization: token $GITEA_TOKEN" \
-          -H "Content-Type: application/json" \
-          -d "$JSON_PAYLOAD")
-          
-      - echo "Extraindo ID da Release..."
+      - RESPONSE=$(curl -s -X POST "http://192.168.31.215:3099/api/v1/repos/${CI_REPO_OWNER}/${CI_REPO_NAME}/releases" -H "accept: application/json" -H "Authorization: token $GITEA_TOKEN" -H "Content-Type: application/json" -d "$JSON_PAYLOAD")
       - RELEASE_ID=$(echo "$RESPONSE" | jq -r '.id')
-      
       - |
         if [ "$RELEASE_ID" == "null" ] || [ -z "$RELEASE_ID" ]; then
-          echo "❌ Erro ao criar release. Resposta da API:"
-          echo "$RESPONSE"
-          exit 1
+          echo "Erro ao criar release" && exit 1
         fi
-        
-      - echo "✅ Release $RELEASE_ID criada! Fazendo upload dos arquivos binários em anexo..."
-      
-      - echo "➡️  Upload da versão Linux..."
+      - echo "Fazendo upload dos binários..."
       - curl -s -X POST "http://192.168.31.215:3099/api/v1/repos/${CI_REPO_OWNER}/${CI_REPO_NAME}/releases/$RELEASE_ID/assets?name=api-bun-linux" -H "Authorization: token $GITEA_TOKEN" -F "attachment=@api-bun-linux"
-      
-      - echo "➡️  Upload da versão Windows..."
       - curl -s -X POST "http://192.168.31.215:3099/api/v1/repos/${CI_REPO_OWNER}/${CI_REPO_NAME}/releases/$RELEASE_ID/assets?name=api-bun-windows.exe" -H "Authorization: token $GITEA_TOKEN" -F "attachment=@api-bun-windows.exe"
-      
-      - echo "➡️  Upload da versão MacOS..."
       - curl -s -X POST "http://192.168.31.215:3099/api/v1/repos/${CI_REPO_OWNER}/${CI_REPO_NAME}/releases/$RELEASE_ID/assets?name=api-bun-macos" -H "Authorization: token $GITEA_TOKEN" -F "attachment=@api-bun-macos"
-      
-      - echo "🎉 Deploy de artefatos concluído com sucesso!"
     when:
       - event: tag
 
