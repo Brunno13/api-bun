@@ -1,5 +1,15 @@
 # See https://help.github.com/articles/ignoring-files/ for more about ignoring files.
 
+# Ignora binários standalone
+api-bun-linux
+api-bun-windows.exe
+api-bun-macos
+bin/
+
+# Ignora outras pastas desnecessárias para a imagem
+node_modules/
+.git/
+
 # dependencies
 /node_modules
 /.pnp
