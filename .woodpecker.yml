@@ -67,9 +67,6 @@ steps:
       note: "🚀 Deploy automático realizado com sucesso pelo Woodpecker CI."
       title: ${CI_COMMIT_TAG}
       skip_verify: true
-    environment:
-      # O plugin-release usa internamente ferramentas de rede que respeitam isso
-      CURL_OPTIONS: "--resolve gitea.brunnoserver.duckdns.org:80:192.168.31.215"
     when:
       - event: tag
 
