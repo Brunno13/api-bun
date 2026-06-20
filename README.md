@@ -72,7 +72,7 @@ Para o funcionamento correto no Docker, certifique-se de que:
   ```bash
   bunx drizzle-kit push
   ```
-
+ 
 3. Execute o servidor em modo desenvolvimento:
   ```bash
   bun run dev
