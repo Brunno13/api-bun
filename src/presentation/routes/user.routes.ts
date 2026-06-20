@@ -6,6 +6,7 @@ import { auth } from "../../infrastructure/auth/auth";
 import { AppError } from "../../core/errors/appError";
 import { MESSAGES, ErrorCode, UserRole } from "../../core/messages/messages";
 import { requireRoles } from "../middlewares/role.validator";
+import { logger } from "../../core/utils/logger";
 
 export const userRoutes = (di: AwilixContainer) => {
   const userManager = di.resolve<UserManager>("userManager");
@@ -70,7 +71,9 @@ export const userRoutes = (di: AwilixContainer) => {
     .delete(
       "/:email",
       async ({ params }) => {
-        await userManager.deleteByEmail(params.email);
+        const response = await userManager.deleteByEmail(params.email);
+
+        logger.info({ response }, "❌ Resultado Delete: TESTE");
         
         return {
           success: true,
