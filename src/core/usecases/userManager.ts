@@ -9,7 +9,7 @@ export class UserManager {
     return this.userRepository.create(data);
   }
 
-  async getById(id: number): Promise<User | null> {
+  async getById(id: string): Promise<User | null> {
     const user = await this.userRepository.findById(id);
     if (!user) {
       throw new NotFoundError(`Usuário com ID ${id} não encontrado.`);
@@ -17,7 +17,10 @@ export class UserManager {
     return user;
   }
 
-  async update(id: number, data: Partial<Omit<User, "id">>): Promise<User | null> {
+  async update(
+    id: string,
+    data: Partial<Omit<User, "id">>,
+  ): Promise<User | null> {
     const existing = await this.userRepository.findById(id);
     if (!existing) {
       throw new NotFoundError(`Usuário com ID ${id} não encontrado.`);
@@ -26,7 +29,7 @@ export class UserManager {
     return this.userRepository.update(id, data);
   }
 
-  async delete(id: number): Promise<boolean> {
+  async delete(id: string): Promise<boolean> {
     const exists = await this.userRepository.findById(id);
     if (!exists) {
       throw new NotFoundError(`Usuário com ID ${id} não encontrado.`);
@@ -41,7 +44,7 @@ export class UserManager {
 
   async updateByEmail(
     email: string,
-    data: Partial<Omit<User, "id">>|{},
+    data: Partial<Omit<User, "id">> | {},
   ): Promise<User | null> {
     const existing = await this.userRepository.findByEmail(email);
     if (!existing) {

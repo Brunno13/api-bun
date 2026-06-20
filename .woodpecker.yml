@@ -10,7 +10,7 @@ steps:
       - bun install
       - echo "Executando a suíte de testes..."
       - bun test
-      
+
   - name: deploy-elysia
     image: docker:cli
     volumes:
@@ -21,6 +21,6 @@ steps:
       - echo "Limpando versão anterior..."
       - docker stop api-bun || true
       - docker rm api-bun || true
-      - echo "Subindo o novo servidor Elysia..."
-      - docker run -d --name api-bun -p 3003:3000 -v /opt/api-bun/data:/app/data -e DATABASE_URL=/app/data/sqlite.db -e DO_NOT_TRACK=1 -e OTEL_SERVICE_NAME=api-bun -e OTEL_EXPORTER_URL=http://192.168.31.215:4318/v1/traces --restart unless-stopped api-bun:latest
+      - echo "Subindo o novo servidor Elysia com Better Auth..."
+      - docker run -d --name api-bun -p 3003:3000 -v /opt/api-bun/data:/app/data -e DATABASE_URL=/app/data/sqlite.db -e DO_NOT_TRACK=1 -e OTEL_SERVICE_NAME=api-bun -e OTEL_EXPORTER_URL=http://192.168.31.215:4318/v1/traces -e BETTER_AUTH_SECRET=troque_por_uma_senha_longa_e_aleatoria -e BETTER_AUTH_URL=http://api-bun.brunnoserver.duckdns.org --restart unless-stopped api-bun:latest
       - echo "Deploy concluído com sucesso!"

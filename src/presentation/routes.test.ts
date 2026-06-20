@@ -1,10 +1,11 @@
-import { describe, it, expect, beforeEach, afterEach } from "bun:test";
+import { describe, it, expect, beforeEach, afterEach, spyOn } from "bun:test";
 import { createApp } from "./routes";
 import { UserManager } from "../core/usecases/userManager";
 import { DrizzleUserRepository } from "../infrastructure/repositories/userRepository";
 import { drizzle } from "drizzle-orm/bun-sqlite";
 import { Database } from "bun:sqlite";
 import { BunSQLiteDatabase } from "drizzle-orm/bun-sqlite";
+import { auth } from "../infrastructure/auth/auth";
 
 const BASE_URL = "http://localhost";
 
@@ -15,21 +16,47 @@ describe("Presentation Layer - API Routes (Isolated Tests)", () => {
   let testDbInstance: BunSQLiteDatabase;
 
   beforeEach(async () => {
+    spyOn(auth.api, "getSession").mockResolvedValue({
+      session: {
+        id: "mock-session-123",
+        userId: "mock-uuid-999",
+        expiresAt: new Date(Date.now() + 1000 * 60 * 60 * 24),
+        createdAt: new Date(),
+        updatedAt: new Date(),
+        token: "mock-token",
+        ipAddress: "127.0.0.1",
+        userAgent: "Bun Test",
+      },
+      user: {
+        id: "mock-uuid-999",
+        name: "Usuário VIP",
+        email: "admin@test.com",
+        age: 30,
+        emailVerified: true,
+        createdAt: new Date(),
+        updatedAt: new Date(),
+        image: null,
+      },
+    });
+
     testDb = new Database(":memory:");
     testDbInstance = drizzle(testDb);
 
     testDb.exec(`
-      CREATE TABLE users (
-        id INTEGER PRIMARY KEY AUTOINCREMENT,
+      CREATE TABLE user (
+        id TEXT PRIMARY KEY,
         name TEXT NOT NULL,
         email TEXT NOT NULL UNIQUE,
-        age INTEGER NOT NULL
+        age INTEGER NOT NULL,
+        emailVerified INTEGER NOT NULL DEFAULT 0,
+        image TEXT,
+        createdAt INTEGER NOT NULL,
+        updatedAt INTEGER NOT NULL
       );
     `);
 
     const repository = new DrizzleUserRepository(testDbInstance);
     testUserManager = new UserManager(repository);
-
     testApp = createApp(testUserManager);
   });
 

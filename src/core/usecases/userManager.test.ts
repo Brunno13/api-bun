@@ -6,32 +6,34 @@ describe("UserManager Unit Tests", () => {
   let userManager: UserManager;
   let mockUserRepository: any;
 
+  const MOCK_USER_ID = "mock-uuid-1234-5678";
+
   beforeEach(() => {
     mockUserRepository = {
       create: mock().mockResolvedValue({
-        id: 1,
+        id: MOCK_USER_ID,
         name: "Test",
         age: 30,
         email: "test@test.com",
       }),
       findById: mock().mockResolvedValue({
-        id: 1,
+        id: MOCK_USER_ID,
         name: "Test",
         age: 30,
         email: "test@test.com",
       }),
       update: mock().mockResolvedValue({
-        id: 1,
+        id: MOCK_USER_ID,
         name: "Test",
         age: 30,
         email: "test@test.com",
       }),
       delete: mock().mockResolvedValue(true),
       findAll: mock().mockResolvedValue([
-        { id: 1, name: "Test", age: 30, email: "test@test.com" },
+        { id: MOCK_USER_ID, name: "Test", age: 30, email: "test@test.com" },
       ]),
       updateByEmail: mock().mockResolvedValue({
-        id: 1,
+        id: MOCK_USER_ID,
         name: "Test",
         age: 30,
         email: "test@test.com",
@@ -50,7 +52,7 @@ describe("UserManager Unit Tests", () => {
     });
 
     it("should call userRepository.getById", async () => {
-      const id = 1;
+      const id = MOCK_USER_ID;
       await userManager.getById(id);
       expect(mockUserRepository.findById).toHaveBeenCalledWith(id);
     });
@@ -65,7 +67,7 @@ describe("UserManager Unit Tests", () => {
     it("should return success when user is deleted", async () => {
       const email = "test@test.com";
       mockUserRepository.findByEmail.mockResolvedValue({
-        id: 1,
+        id: MOCK_USER_ID,
         name: "Test",
         age: 30,
         email,
@@ -92,7 +94,9 @@ describe("UserManager Unit Tests", () => {
 
     it("should throw error when exception occurs", async () => {
       const email = "test@test.com";
-      mockUserRepository.findByEmail.mockRejectedValue(new Error("Database failure"));
+      mockUserRepository.findByEmail.mockRejectedValue(
+        new Error("Database failure"),
+      );
 
       await expect(userManager.deleteByEmail(email)).rejects.toThrow();
     });

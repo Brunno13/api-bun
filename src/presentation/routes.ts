@@ -1,4 +1,5 @@
 import { Elysia } from "elysia";
+import { auth } from "../infrastructure/auth/auth";
 import { opentelemetry } from "@elysiajs/opentelemetry";
 import { BatchSpanProcessor } from "@opentelemetry/sdk-trace-node";
 import { OTLPTraceExporter } from "@opentelemetry/exporter-trace-otlp-http";
@@ -8,9 +9,10 @@ import { container } from "../container";
 import { UserManager } from "../core/usecases/userManager";
 import { AppError } from "../core/errors";
 
-const exporterUrl = process.env.OTEL_EXPORTER_URL || "http://localhost:4318/v1/traces";
+const exporterUrl =
+  process.env.OTEL_EXPORTER_URL || "http://localhost:4318/v1/traces";
 const traceExporter = new OTLPTraceExporter({
-  url: exporterUrl, 
+  url: exporterUrl,
 });
 
 export const createApp = (userManager: UserManager) => {
@@ -25,8 +27,12 @@ export const createApp = (userManager: UserManager) => {
     .use(
       opentelemetry({
         spanProcessors: [new BatchSpanProcessor(traceExporter)],
-      })
+      }),
     )
+    .all("/api/auth/*", async ({ request }) => {
+      // O Better Auth processa o login, registro, cookies e sessões automaticamente
+      return auth.handler(request);
+    })
     .get("/", () => "A API Elysia + Drizzle está online!")
     .post(
       "/users",
@@ -39,9 +45,16 @@ export const createApp = (userManager: UserManager) => {
           age: z.number().int().positive(),
           email: z.string().email(),
         }),
-      }
+      },
     )
-    .get("/users", async () => {
+    .get("/users", async ({ request, set }) => {
+      const session = await auth.api.getSession({
+        headers: request.headers,
+      });
+      if (!session) {
+        set.status = 401;
+        return { error: "Não autorizado. Faça login primeiro." };
+      }
       return await userManager.findAll();
     })
     .put(
@@ -56,7 +69,7 @@ export const createApp = (userManager: UserManager) => {
         body: z.object({
           age: z.number().int().positive(),
         }),
-      }
+      },
     )
     .delete(
       "/users/:email",
@@ -64,7 +77,9 @@ export const createApp = (userManager: UserManager) => {
         const success = await userManager.deleteByEmail(params.email);
         return {
           success: success,
-          message: success ? "Usuário deletado com sucesso!" : "Erro ao deletar.",
+          message: success
+            ? "Usuário deletado com sucesso!"
+            : "Erro ao deletar.",
         };
       },
       {
@@ -90,4 +105,4 @@ export const createApp = (userManager: UserManager) => {
     });
 };
 
-export const app = createApp(container.userDomain.userManager);
+export const app = createApp(container.get("userManager"));

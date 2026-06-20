@@ -12,13 +12,17 @@ describe("DrizzleUserRepository Infrastructure Tests", () => {
   beforeEach(async () => {
     testDb = new Database(":memory:");
     testDbInstance = drizzle(testDb);
-    
+
     testDb.exec(`
-      CREATE TABLE users (
-        id INTEGER PRIMARY KEY AUTOINCREMENT,
+      CREATE TABLE user (
+        id TEXT PRIMARY KEY,
         name TEXT NOT NULL,
         email TEXT NOT NULL UNIQUE,
-        age INTEGER NOT NULL
+        age INTEGER NOT NULL,
+        emailVerified INTEGER NOT NULL DEFAULT 0,
+        image TEXT,
+        createdAt INTEGER NOT NULL,
+        updatedAt INTEGER NOT NULL
       );
     `);
 
@@ -49,7 +53,7 @@ describe("DrizzleUserRepository Infrastructure Tests", () => {
   });
 
   it("should return null if user not found by ID", async () => {
-    const found = await repository.findById(999);
+    const found = await repository.findById("999");
     expect(found).toBeNull();
   });
 
@@ -77,9 +81,13 @@ describe("DrizzleUserRepository Infrastructure Tests", () => {
   });
 
   it("should delete a user by ID", async () => {
-    const created = await repository.create({ name: "Delete Me", email: "del@test.com", age: 10 });
+    const created = await repository.create({
+      name: "Delete Me",
+      email: "del@test.com",
+      age: 10,
+    });
     const deleted = await repository.delete(created!.id!);
-    
+
     expect(deleted).toBe(true);
     const found = await repository.findById(created!.id!);
     expect(found).toBeNull();
