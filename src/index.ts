@@ -77,7 +77,7 @@ const app = new Elysia()
     "/users/:email",
     async ({ params }) => {
       await db.delete(users).where(eq(users.email, params.email));
-      return { success: true, message: "Usuário deletado do banco!" };
+      return { success: true, message: "Usuário deletado do banco com sucesso!" };
     },
     {
       params: z.object({
