@@ -19,6 +19,7 @@ export enum FrameworkErrorCode {
   NOT_FOUND = "NOT_FOUND",
   PARSE = "PARSE",
   UNKNOWN = "UNKNOWN",
+  BAD_REQUEST = "BAD_REQUEST",
 }
 
 export enum ErrorCode {
@@ -58,6 +59,7 @@ export const MESSAGES = {
     API_ONLINE: "A API Elysia + Drizzle está online!",
     FATAL_ERROR_LOG: "🔥 ERRO FATAL:",
     OPENAPI_GENERATION_FAILED: "⚠️ AVISO: Falha ao gerar o esquema OpenAPI do Better Auth.",
+    UNKNOWN_ERROR: "Erro desconhecido na aplicação.",
   },
 
   DOCS: {

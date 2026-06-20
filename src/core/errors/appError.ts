@@ -7,7 +7,7 @@ export class AppError extends Error {
 
   constructor(code: ErrorCode) {
     const errorConfig = MESSAGES.ERROR[code];
-    super(errorConfig?.message || "Erro desconhecido na aplicação.");
+    super(errorConfig?.message || MESSAGES.SYSTEM.UNKNOWN_ERROR);
     
     this.name = "AppError";
     this.statusCode = errorConfig?.status || HttpStatus.INTERNAL_SERVER_ERROR;

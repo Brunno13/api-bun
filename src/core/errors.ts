@@ -1,3 +1,4 @@
+import { FrameworkErrorCode, HttpStatus } from "./messages/messages";
 export class AppError extends Error {
   constructor(public message: string, public statusCode: number = 500, public errorCode?: string) {
     super(message);
@@ -7,12 +8,12 @@ export class AppError extends Error {
 
 export class NotFoundError extends AppError {
   constructor(message: string = "Recurso não encontrado") {
-    super(message, 404, "NOT_FOUND");
+    super(message, HttpStatus.NOT_FOUND, FrameworkErrorCode.NOT_FOUND);
   }
 }
 
 export class BadRequestError extends AppError {
   constructor(message: string = "Requisição inválida") {
-    super(message, 400, "BAD_REQUEST");
+    super(message, HttpStatus.BAD_REQUEST, FrameworkErrorCode.BAD_REQUEST);
   }
 }
