@@ -26,13 +26,12 @@ steps:
     image: oven/bun:alpine
     commands:
       - echo "Criando diretório para os binários..."
-      #- mkdir -p ./bin
+      - mkdir -p ./bin
       
       - echo "Compilando executáveis standalone (Linux, Windows, MacOS)..."
-      # Redirecionamos o --outfile para a nova pasta ./bin
-      - bun build ./src/index.ts --compile --target=bun-linux-x64 --outfile=./HDD4TB/torrent/api-bun-linux
-      - bun build ./src/index.ts --compile --target=bun-windows-x64 --outfile=./HDD4TB/torrent/api-bun-windows.exe
-      - bun build ./src/index.ts --compile --target=bun-darwin-x64 --outfile=./HDD4TB/torrent/api-bun-macos
+      - bun build ./src/index.ts --compile --target=bun-linux-x64 --outfile=./bin/api-bun-linux
+      - bun build ./src/index.ts --compile --target=bun-windows-x64 --outfile=./bin/api-bun-windows.exe
+      - bun build ./src/index.ts --compile --target=bun-darwin-x64 --outfile=./bin/api-bun-macos
     when:
       - event: tag
 
