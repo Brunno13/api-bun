@@ -52,7 +52,7 @@ Em vez das classes instanciarem suas próprias dependências, nós utilizamos o 
 | :--- | :--- | :--- |
 | `src/core` | Regras de negócio, entidades e lógica central. | TypeScript (Pure) |
 | `src/infrastructure` | Implementação de DB, autenticação e integração externa. | Drizzle, Better Auth |
-| `src/di` (ou `container`) | Configuração e resolução de injeção de dependências. | Awilix |
+| `src/container.ts` | Configuração e resolução de injeção de dependências. | Awilix |
 | `src/presentation` | Definição de rotas, parsing de JSON e validação HTTP. | Elysia, Zod |
 
 ---
