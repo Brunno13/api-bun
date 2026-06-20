@@ -107,9 +107,12 @@ steps:
           echo "Erro ao criar release" && exit 1
         fi
       - echo "Fazendo upload dos binários..."
-      - curl -s -X POST "http://192.168.31.215:3099/api/v1/repos/${CI_REPO_OWNER}/${CI_REPO_NAME}/releases/$RELEASE_ID/assets?name=api-bun-linux" -H "Authorization: token $GITEA_TOKEN" -F "attachment=@api-bun-linux"
-      - curl -s -X POST "http://192.168.31.215:3099/api/v1/repos/${CI_REPO_OWNER}/${CI_REPO_NAME}/releases/$RELEASE_ID/assets?name=api-bun-windows.exe" -H "Authorization: token $GITEA_TOKEN" -F "attachment=@api-bun-windows.exe"
-      - curl -s -X POST "http://192.168.31.215:3099/api/v1/repos/${CI_REPO_OWNER}/${CI_REPO_NAME}/releases/$RELEASE_ID/assets?name=api-bun-macos" -H "Authorization: token $GITEA_TOKEN" -F "attachment=@api-bun-macos"
+      - | 
+        curl -s -X POST "http://192.168.31.215:3099/api/v1/repos/${CI_REPO_OWNER}/${CI_REPO_NAME}/releases/$RELEASE_ID/assets?name=api-bun-linux" -H "Authorization: token $GITEA_TOKEN" -F "attachment=@api-bun-linux"
+      - |
+        curl -s -X POST "http://192.168.31.215:3099/api/v1/repos/${CI_REPO_OWNER}/${CI_REPO_NAME}/releases/$RELEASE_ID/assets?name=api-bun-windows.exe" -H "Authorization: token $GITEA_TOKEN" -F "attachment=@api-bun-windows.exe"
+      - |
+        curl -s -X POST "http://192.168.31.215:3099/api/v1/repos/${CI_REPO_OWNER}/${CI_REPO_NAME}/releases/$RELEASE_ID/assets?name=api-bun-macos" -H "Authorization: token $GITEA_TOKEN" -F "attachment=@api-bun-macos"
     when:
       - event: tag
 
