@@ -11,7 +11,7 @@ clone:
 
 steps:
   # =========================================================
-  # FASE 1: Testes e Build (Sempre roda para garantir a integridade)
+  # FASE 1: Testes e Build (Sempre roda para garantir a integridade) 
   # =========================================================
   - name: testar-codigo
     image: oven/bun:alpine
