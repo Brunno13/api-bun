@@ -8,8 +8,9 @@ import { container } from "../container";
 import { UserManager } from "../core/usecases/userManager";
 import { AppError } from "../core/errors";
 
+const exporterUrl = process.env.OTEL_EXPORTER_URL || "http://localhost:4318/v1/traces";
 const traceExporter = new OTLPTraceExporter({
-  url: "http://jaeger:4318/v1/traces", 
+  url: exporterUrl, 
 });
 
 export const createApp = (userManager: UserManager) => {
