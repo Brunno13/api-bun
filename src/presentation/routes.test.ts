@@ -7,14 +7,14 @@ const BASE_URL = "http://localhost";
 describe("Presentation Layer - Global API Routes", () => {
   let testApp: any;
 
-  beforeEach(() => {
+  beforeEach(async () => {
     const mockContainer = createContainer();
 
     mockContainer.register({
       userManager: asValue({}),
     });
 
-    testApp = createApp(mockContainer);
+    testApp = await createApp(mockContainer);
   });
 
   it("GET / should return the online message", async () => {
