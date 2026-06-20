@@ -85,7 +85,7 @@ describe("UserManager Unit Tests", () => {
         await userManager.deleteByEmail(email);
       } catch (error: any) {
         expect(error).toBeInstanceOf(AppError);
-        expect(error.statusCode).toBe(40400);
+        expect(error.statusCode).toBe(404);
         expect(error.errorCode).toBe("NOT_FOUND");
       }
     });
