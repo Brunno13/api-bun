@@ -100,7 +100,7 @@ steps:
         $CHANGELOG" \
           '{tag_name: $tag, name: $name, body: $body}')
       - echo "Enviando Release para o Gitea..."
-      - RESPONSE=$(curl -s -X POST "http://192.168.31.215:3099/api/v1/repos/${CI_REPO_OWNER}/${CI_REPO_NAME}/releases" -H "accept: application/json" -H "Authorization: token $GITEA_TOKEN" -H "Content-Type: application/json" -d "$JSON_PAYLOAD")
+      - "RESPONSE=$(curl -s -X POST \"http://192.168.31.215:3099/api/v1/repos/${CI_REPO_OWNER}/${CI_REPO_NAME}/releases\" -H \"accept: application/json\" -H \"Authorization: token $GITEA_TOKEN\" -H \"Content-Type: application/json\" -d \"$JSON_PAYLOAD\")"
       - RELEASE_ID=$(echo "$RESPONSE" | jq -r '.id')
       - |
         if [ "$RELEASE_ID" == "null" ] || [ -z "$RELEASE_ID" ]; then
