@@ -11,7 +11,7 @@ clone:
 
 steps:
   # =========================================================
-  # FASE 1: Testes e Build (Sempre roda para garantir a integridade) 
+  # FASE 1: Testes e Build (Sempre roda para garantir a integridade)
   # =========================================================
   - name: testar-codigo
     image: oven/bun:alpine
@@ -59,23 +59,49 @@ steps:
   # FASE 3: Produção (Roda APENAS quando uma Tag de versão é criada)
   # =========================================================
   - name: gerar-release-notes
-    image: curlimages/curl
+    image: alpine
     environment:
       GITEA_TOKEN:
         from_secret: gitea_token
     commands:
-      - echo "Criando Release ${CI_COMMIT_TAG} diretamente via API do Gitea com changelog..."
+      - echo "Preparando ambiente para gerar Changelog..."
+      - apk add --no-cache curl git jq
+      
+      - echo "Baixando histórico de commits e tags..."
+      - git fetch --tags --unshallow || git fetch --tags
+      
+      - echo "Calculando a diferença entre as tags..."
+      - PREV_TAG=$(git describe --tags --abbrev=0 HEAD^ 2>/dev/null || echo "")
+      
+      - |
+        if [ -z "$PREV_TAG" ]; then
+          echo "Primeira tag ou tag isolada. Extraindo todos os commits..."
+          CHANGELOG=$(git log --pretty=format:"- %h %s")
+        else
+          echo "Tag anterior: $PREV_TAG. Extraindo commits recentes..."
+          CHANGELOG=$(git log --pretty=format:"- %h %s" ${PREV_TAG}..HEAD)
+        fi
+        
+      - echo "Construindo payload JSON dinâmico..."
+      - |
+        JSON_PAYLOAD=$(jq -n \
+          --arg tag "${CI_COMMIT_TAG}" \
+          --arg name "Versão ${CI_COMMIT_TAG}" \
+          --arg body "🚀 Deploy automático realizado com sucesso pelo Woodpecker CI.
+          
+      ---
+
+      ### 🔄 Histórico de Commits
+      $CHANGELOG" \
+          '{tag_name: $tag, name: $name, body: $body}')
+          
+      - echo "Enviando Release para o Gitea..."
       - |
         curl -f -X POST "http://192.168.31.215:3099/api/v1/repos/${CI_REPO_OWNER}/${CI_REPO_NAME}/releases" \
           -H "accept: application/json" \
           -H "Authorization: token $GITEA_TOKEN" \
           -H "Content-Type: application/json" \
-          -d "{
-            \"tag_name\": \"${CI_COMMIT_TAG}\",
-            \"name\": \"Versão ${CI_COMMIT_TAG}\",
-            \"body\": \"🚀 Deploy automático realizado com sucesso pelo Woodpecker CI.\\n\\n---\",
-            \"generate_release_notes\": true
-          }"
+          -d "$JSON_PAYLOAD"
     when:
       - event: tag
 
