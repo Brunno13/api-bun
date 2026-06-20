@@ -67,8 +67,9 @@ steps:
       - echo "Preparando ambiente para gerar Changelog..."
       - apk add --no-cache curl git jq
       
-      - echo "Baixando histórico de commits e tags..."
-      - git fetch --tags --unshallow || git fetch --tags
+      - echo "Sincronizando o histórico da branch main e das tags para conectar o gráfico..."
+      - git fetch origin main
+      - git fetch --tags
       
       - echo "Calculando a diferença entre as tags..."
       - PREV_TAG=$(git describe --tags --abbrev=0 HEAD^ 2>/dev/null || echo "")
@@ -78,7 +79,7 @@ steps:
           echo "Primeira tag ou tag isolada. Extraindo todos os commits..."
           CHANGELOG=$(git log --pretty=format:"- %h %s")
         else
-          echo "Tag anterior: $PREV_TAG. Extraindo commits recentes..."
+          echo "Tag anterior encontrada: $PREV_TAG. Extraindo commits recentes..."
           CHANGELOG=$(git log --pretty=format:"- %h %s" ${PREV_TAG}..HEAD)
         fi
         
