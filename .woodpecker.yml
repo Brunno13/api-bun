@@ -11,5 +11,5 @@ steps:
       - docker run -d --name api-bun -p 3003:3000 --restart always api-bun:latest
       - echo "Deploy da api-bun concluído!"
     when:
-      event: push
+      event: push #pipeline so ira ocorre quando um push na main acontecer
       branch: main
