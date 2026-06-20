@@ -21,12 +21,21 @@ steps:
       - echo "Executando a suíte de testes..."
       - bun test
 
+  - name: build-executaveis
+    image: oven/bun:alpine
+    commands:
+      - echo "Compilando executáveis standalone (Linux, Windows, MacOS)..."
+      # IMPORTANTE: Se o seu ponto de entrada não for src/index.ts, altere os caminhos abaixo.
+      - bun build ./src/index.ts --compile --target=bun-linux-x64 --outfile=api-bun-linux
+      - bun build ./src/index.ts --compile --target=bun-windows-x64 --outfile=api-bun-windows.exe
+      - bun build ./src/index.ts --compile --target=bun-darwin-x64 --outfile=api-bun-macos
+
   - name: build-imagem-docker
     image: docker:cli
     volumes:
       - /var/run/docker.sock:/var/run/docker.sock
     commands:
-      - echo "Testes aprovados! Atualizando a imagem api-bun:latest..."
+      - echo "Testes e binários aprovados! Atualizando a imagem api-bun:latest..."
       - docker build -t api-bun:latest .
 
   # =========================================================
@@ -81,7 +90,6 @@ steps:
           CHANGELOG=$(git log --pretty=format:"- %h %s")
         else
           echo "Tag anterior encontrada: $PREV_TAG. Extraindo commits recentes..."
-          # CORREÇÃO AQUI: Removidas as chaves {} da variável PREV_TAG
           CHANGELOG=$(git log --pretty=format:"- %h %s" $PREV_TAG..HEAD)
         fi
         
@@ -99,12 +107,36 @@ steps:
           '{tag_name: $tag, name: $name, body: $body}')
           
       - echo "Enviando Release para o Gitea..."
+      # Salvamos a resposta da API em uma variável para extrair o ID
       - |
-        curl -f -X POST "http://192.168.31.215:3099/api/v1/repos/${CI_REPO_OWNER}/${CI_REPO_NAME}/releases" \
+        RESPONSE=$(curl -s -X POST "http://192.168.31.215:3099/api/v1/repos/${CI_REPO_OWNER}/${CI_REPO_NAME}/releases" \
           -H "accept: application/json" \
           -H "Authorization: token $GITEA_TOKEN" \
           -H "Content-Type: application/json" \
-          -d "$JSON_PAYLOAD"
+          -d "$JSON_PAYLOAD")
+          
+      - echo "Extraindo ID da Release..."
+      - RELEASE_ID=$(echo "$RESPONSE" | jq -r '.id')
+      
+      - |
+        if [ "$RELEASE_ID" == "null" ] || [ -z "$RELEASE_ID" ]; then
+          echo "❌ Erro ao criar release. Resposta da API:"
+          echo "$RESPONSE"
+          exit 1
+        fi
+        
+      - echo "✅ Release $RELEASE_ID criada! Fazendo upload dos arquivos binários em anexo..."
+      
+      - echo "➡️  Upload da versão Linux..."
+      - curl -s -X POST "http://192.168.31.215:3099/api/v1/repos/${CI_REPO_OWNER}/${CI_REPO_NAME}/releases/$RELEASE_ID/assets?name=api-bun-linux" -H "Authorization: token $GITEA_TOKEN" -F "attachment=@api-bun-linux"
+      
+      - echo "➡️  Upload da versão Windows..."
+      - curl -s -X POST "http://192.168.31.215:3099/api/v1/repos/${CI_REPO_OWNER}/${CI_REPO_NAME}/releases/$RELEASE_ID/assets?name=api-bun-windows.exe" -H "Authorization: token $GITEA_TOKEN" -F "attachment=@api-bun-windows.exe"
+      
+      - echo "➡️  Upload da versão MacOS..."
+      - curl -s -X POST "http://192.168.31.215:3099/api/v1/repos/${CI_REPO_OWNER}/${CI_REPO_NAME}/releases/$RELEASE_ID/assets?name=api-bun-macos" -H "Authorization: token $GITEA_TOKEN" -F "attachment=@api-bun-macos"
+      
+      - echo "🎉 Deploy de artefatos concluído com sucesso!"
     when:
       - event: tag
 
