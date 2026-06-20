@@ -40,3 +40,15 @@ yarn-error.log*
 **/*.log
 package-lock.json
 **/*.bun
+
+# Arquivos de Banco de Dados SQLite
+*.db
+*.sqlite
+*.sqlite3
+*-journal
+*-wal
+*-shm
+
+# Histórico local do Drizzle
+.drizzle/
+drizzle/
