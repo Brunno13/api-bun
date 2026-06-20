@@ -1,22 +1,19 @@
-FROM oven/bun:alpine
-
+FROM oven/bun:alpine AS base
 WORKDIR /app
 
-# Copia os arquivos de dependência
-COPY package.json bun.lock* ./
+FROM base AS builder
 
-# Removemos a flag --production. Precisamos instalar tudo para que o 'drizzle-kit'
-# esteja disponível dentro do container para criar as tabelas.
-RUN bun install
+COPY package.json bun.lockb ./
+RUN bun install --frozen-lockfile
 
-# Copia o código-fonte e o arquivo de configuração do banco
-COPY src ./src
-COPY drizzle.config.ts ./
-
+FROM base AS release
 ENV NODE_ENV=production
+
+COPY --from=builder /app/node_modules ./node_modules
+
+COPY src ./src
+COPY package.json drizzle.config.ts ./
 
 EXPOSE 3000
 
-# O Truque de Mestre: Ao ligar o container, ele primeiro empurra o schema
-# para o banco de dados e, se der sucesso (&&), ele inicia o servidor Elysia.
 CMD ["sh", "-c", "bunx drizzle-kit push && bun run src/index.ts"]
