@@ -80,12 +80,12 @@ A imagem é construída sobre o runtime **Bun** (`oven/bun:alpine`). O ecossiste
    ```
 
 2. **Sincronize o banco de dados:**
-  ```bash
+   ```bash
    bunx drizzle-kit push
    ```
 
 3. **Execute:**
-  ```bash
+   ```bash
    bun run dev
    ```
 
