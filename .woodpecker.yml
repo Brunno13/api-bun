@@ -89,10 +89,10 @@ steps:
           --arg name "Versão ${CI_COMMIT_TAG}" \
           --arg body "🚀 Deploy automático realizado com sucesso pelo Woodpecker CI.
           
-      ---
+        ---
 
-      ### 🔄 Histórico de Commits
-      $CHANGELOG" \
+        ### 🔄 Histórico de Commits
+        $CHANGELOG" \
           '{tag_name: $tag, name: $name, body: $body}')
           
       - echo "Enviando Release para o Gitea..."
