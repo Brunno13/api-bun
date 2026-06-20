@@ -128,12 +128,13 @@ steps:
   - name: espelhar-github
     image: alpine/git
     environment:
+      GITHUB_USER: Brunno13
       GITHUB_TOKEN:
         from_secret: github_token
     commands:
       - echo "=== SINCRONIZANDO COM O GITHUB ==="
       - git config --global --add safe.directory '*'
-      - git remote add github https://Brunno13:${GITHUB_TOKEN}@github.com/Brunno13/api-bun.git
+      - git remote add github https://${GITHUB_USER}:${GITHUB_TOKEN}@github.com/${GITHUB_USER}/api-bun.git
       - git push github main --force
       - git push github ${CI_COMMIT_TAG} --force
     when:
@@ -142,6 +143,7 @@ steps:
   - name: criar-release-github
     image: alpine
     environment:
+      GITHUB_USER: Brunno13
       GITHUB_TOKEN:
         from_secret: github_token
     commands:
@@ -149,7 +151,7 @@ steps:
       - |
         set -e
         echo "=== CRIANDO RELEASE NO GITHUB ==="
-        GITHUB_API_URL="https://api.github.com/repos/Brunno13/api-bun/releases"
+        GITHUB_API_URL="https://api.github.com/repos/${GITHUB_USER}/api-bun/releases"
         
         JSON_PAYLOAD=$(jq -n --arg tag "${CI_COMMIT_TAG}" --arg name "Versão ${CI_COMMIT_TAG}" --arg body "🚀 Lançamento automatizado sincronizado a partir do servidor Gitea interno." '{tag_name: $tag, name: $name, body: $body}')
         
@@ -166,7 +168,7 @@ steps:
         fi
         
         echo "=== INICIANDO UPLOAD DOS ANEXOS NO GITHUB ==="
-        GH_UPLOAD_URL="https://uploads.github.com/repos/Brunno13/api-bun/releases/$RELEASE_ID/assets"
+        GH_UPLOAD_URL="https://uploads.github.com/repos/${GITHUB_USER}/api-bun/releases/$RELEASE_ID/assets"
         
         curl -f -s -X POST "$GH_UPLOAD_URL?name=api-bun-linux" -H "Authorization: Bearer $GITHUB_TOKEN" -H "Content-Type: application/octet-stream" --data-binary @"./bin/api-bun-linux"
         curl -f -s -X POST "$GH_UPLOAD_URL?name=api-bun-windows.exe" -H "Authorization: Bearer $GITHUB_TOKEN" -H "Content-Type: application/octet-stream" --data-binary @"./bin/api-bun-windows.exe"
