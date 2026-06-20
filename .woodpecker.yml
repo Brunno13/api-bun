@@ -16,7 +16,9 @@ steps:
     volumes:
       - /var/run/docker.sock:/var/run/docker.sock
 
-    secrets: [better_auth_secret]
+    environment:
+      BETTER_AUTH_SECRET:
+        from_secret: better_auth_secret
     commands:
       - echo "Testes aprovados! Iniciando build da API..."
       - docker build -t api-bun:latest .
