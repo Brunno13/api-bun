@@ -21,6 +21,11 @@ export const createApp = (userManager: UserManager) => {
         },
       }),
     )
+    .use(
+      opentelemetry({
+        spanProcessors: [new BatchSpanProcessor(traceExporter)],
+      })
+    )
     .get("/", () => "A API Elysia + Drizzle está online!")
     .post(
       "/users",
