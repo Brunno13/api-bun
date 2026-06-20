@@ -14,5 +14,9 @@ steps:
       - docker stop api-bun || true
       - docker rm api-bun || true
       - echo "Subindo o novo servidor Elysia..."
-      - docker run -d --name api-bun -p 3003:3000 --restart unless-stopped api-bun:latest
+      # AS TRÊS NOVIDADES:
+      # 1. -v /opt/api-bun/data:/app/data -> Cria uma ponte blindada para salvar o banco na placa
+      # 2. -e DATABASE_URL=/app/data/sqlite.db -> Diz para o Drizzle salvar o banco dentro da ponte
+      # 3. -e DO_NOT_TRACK=1 -> Desativa as telemetrias do Drizzle-kit para o log do Woodpecker ficar limpo
+      - docker run -d --name api-bun -p 3003:3000 -v /opt/api-bun/data:/app/data -e DATABASE_URL=/app/data/sqlite.db -e DO_NOT_TRACK=1 --restart unless-stopped api-bun:latest
       - echo "Deploy concluído com sucesso!"
