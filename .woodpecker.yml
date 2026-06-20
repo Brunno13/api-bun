@@ -60,10 +60,8 @@ steps:
   # =========================================================
   - name: gerar-release-notes
     image: woodpeckerci/plugin-release
-    extra_hosts:
-      - "gitea.brunnoserver.duckdns.org:192.168.31.215"
     settings:
-      base_url: http://gitea.brunnoserver.duckdns.org
+      base_url: http://192.168.31.215
       api_key:
         from_secret: gitea_token
       note: "🚀 Deploy automático realizado com sucesso pelo Woodpecker CI."
