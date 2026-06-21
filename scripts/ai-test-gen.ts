@@ -1,8 +1,8 @@
 import { $ } from "bun";
 
 // Configurações provenientes do Woodpecker CI (Secrets)
-const LLM_URL = process.env.LOCAL_LLM_URL;
-const LLM_MODEL = process.env.LOCAL_LLM_MODEL;
+const LLM_URL = process.env.LOCAL_LLM_URL || "http://192.168.31.200:11434/v1/chat/completions";
+const LLM_MODEL = process.env.LOCAL_LLM_MODEL || "qwen2.5-coder";
 const REPO_OWNER = process.env.CI_REPO_OWNER;
 const REPO_NAME = process.env.CI_REPO_NAME;
 const GITEA_TOKEN = process.env.GITEA_TOKEN;
@@ -18,14 +18,20 @@ async function runAIBot() {
     }
 
     // 2. Identifica APENAS os arquivos alterados neste push/commit
-    // O git show com --format="" lista exclusivamente os arquivos modificados no HEAD.
-    // Isso evita que o bot processe o repositório inteiro e reescreva testes intocados.
     let diffOutput = "";
     try {
-      diffOutput = await $`git show --name-only --format="" HEAD`.quiet().text();
+      const prevSha = process.env.CI_PREV_COMMIT_SHA;
+      const currSha = process.env.CI_COMMIT_SHA || "HEAD";
+      
+      // Utiliza as variáveis nativas do Woodpecker para comparar exatamente o que veio neste push
+      if (prevSha && prevSha !== "0000000000000000000000000000000000000000") {
+        diffOutput = await $`git diff --name-only ${prevSha} ${currSha}`.quiet().text();
+      } else {
+        diffOutput = await $`git diff-tree --no-commit-id --name-only -r ${currSha}`.quiet().text();
+      }
     } catch (e) {
-      console.warn("⚠️ Aviso: Tentando mapear arquivos via diff local pendente.");
-      diffOutput = await $`git diff --name-only HEAD`.quiet().text();
+      console.warn("⚠️ Aviso: Comando Git falhou, usando git show como fallback.");
+      diffOutput = await $`git show --name-only --format="" HEAD`.quiet().text();
     }
     
     const changedFiles = diffOutput.split('\n')
