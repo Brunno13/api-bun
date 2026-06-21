@@ -17,50 +17,46 @@ async function runAIBot() {
       console.log("🧠 Habilidades da IA carregadas do diretório .ai/test-skills.md");
     }
 
-    // 2. Identifica os arquivos .ts alterados de forma segura (previne erro HEAD^)
+    // 2. Identifica APENAS os arquivos alterados neste push/commit
+    // O git show com --format="" lista exclusivamente os arquivos modificados no HEAD.
+    // Isso evita que o bot processe o repositório inteiro e reescreva testes intocados.
     let diffOutput = "";
     try {
-      // Tenta verificar se há mais de um commit para comparar
-      const commitCount = parseInt(await $`git rev-list --count HEAD`.quiet().text());
-      if (commitCount > 1) {
-          diffOutput = await $`git diff --name-only HEAD^ HEAD`.quiet().text();
-      } else {
-          // Se for o primeiro commit da história, lista todos os arquivos no commit atual
-          diffOutput = await $`git ls-tree -r HEAD --name-only`.quiet().text();
-      }
+      diffOutput = await $`git show --name-only --format="" HEAD`.quiet().text();
     } catch (e) {
-      console.warn("⚠️ Não foi possível usar HEAD^. Listando apenas as mudanças pendentes (se houver).");
+      console.warn("⚠️ Aviso: Tentando mapear arquivos via diff local pendente.");
       diffOutput = await $`git diff --name-only HEAD`.quiet().text();
     }
     
-    const allFiles = diffOutput.split('\n').filter(f => f.endsWith('.ts') && !f.endsWith('.test.ts') && f.length > 0);
+    const changedFiles = diffOutput.split('\n')
+      .map(f => f.trim())
+      .filter(f => f.endsWith('.ts') && !f.endsWith('.test.ts') && f.length > 0);
 
-    if (allFiles.length === 0) {
-      console.log("ℹ️ Nenhum arquivo fonte modificado. O AI Bot vai descansar.");
+    if (changedFiles.length === 0) {
+      console.log("ℹ️ Nenhum arquivo fonte modificado neste commit. O AI Bot vai descansar.");
       process.exit(0);
     }
 
     let novosTestes = 0;
 
-    // 3. Loop para processar apenas arquivos válidos
-    for (const file of allFiles) {
-      // Filtro Estrutural: Ignora interfaces, types, mensagens de erro, configs e injeção de dependência
+    // 3. Loop para processar apenas arquivos VÁLIDOS e ALTERADOS
+    for (const file of changedFiles) {
       if (
-        file.includes('/domain/') ||
-        file.includes('/messages/') ||
-        file.includes('/errors/') ||
-        file.includes('/utils/') ||
-        file.includes('/auth/') ||
+        file.includes('/domain/') || 
+        file.includes('/messages/') || 
+        file.includes('/errors/') || 
+        file.includes('/utils/') || 
+        file.includes('/auth/') || 
         file.includes('/db/') ||
         file.includes('/middlewares/') ||
-        file.includes('types.ts') ||
-        file.includes('errors.ts') ||
-        file.includes('drizzle.config') ||
-        file.includes('container.ts') ||
-        file.includes('config.ts') ||
+        file.includes('types.ts') || 
+        file.includes('errors.ts') || 
+        file.includes('drizzle.config') || 
+        file.includes('container.ts') || 
+        file.includes('config.ts') || 
         file.endsWith('index.ts')
       ) {
-        console.log(`⏩ Ignorando arquivo estrutural (não necessita testes de IA): ${file}`);
+        console.log(`⏭️ Ignorando arquivo estrutural (não necessita testes de IA): ${file}`);
         continue;
       }
 
@@ -75,15 +71,15 @@ async function runAIBot() {
       const testFileName = file.replace('.ts', '.test.ts');
       const testExists = await Bun.file(testFileName).exists();
       
-      // Crases escapadas para não quebrar a formatação do script
       let prompt = `Baseado nas diretrizes fornecidas, atue no seguinte arquivo: ${file}\n\nCódigo do arquivo:\n\`\`\`typescript\n${content}\n\`\`\`\n`;
 
+      // Como o arquivo já está na lista "changedFiles", ele sofreu alteração.
       if (testExists) {
-        console.log(`🔄 Arquivo já possui teste. Solicitando ATUALIZAÇÃO do teste para: ${file}...`);
+        console.log(`🔄 Arquivo já possui teste e FOI ALTERADO. Solicitando ATUALIZAÇÃO do teste para: ${file}...`);
         const existingTestContent = await Bun.file(testFileName).text();
         prompt += `\n⚠️ ATENÇÃO: Já existe um teste para este arquivo. Por favor, ATUALIZE-O para refletir as novas mudanças do código fonte, mantendo o que já funcionava.\n\nTeste Atual:\n\`\`\`typescript\n${existingTestContent}\n\`\`\``;
       } else {
-        console.log(`🤖 Solicitando NOVO teste unitário para: ${file}...`);
+        console.log(`🤖 Arquivo modificado/novo não possui teste. Solicitando CRIAÇÃO de teste para: ${file}...`);
         prompt += `\nEscreva um novo teste unitário completo para este código.`;
       }
 
@@ -116,13 +112,12 @@ async function runAIBot() {
       if (match && match[1]) {
         testCode = match[1];
       } else {
-         // Fallback: se a IA não colocar os marcadores, tenta usar a resposta toda
-         // Isto evita o erro se o modelo for desobediente
+         // Fallback de segurança caso a IA não retorne os marcadores
          console.warn(`⚠️ A IA não usou os marcadores de código para ${file}. Tentando usar a resposta bruta.`);
          testCode = aiMessage;
       }
 
-      // Evita gravar arquivos vazios
+      // Evita gravar arquivos vazios ou quebrados
       if (testCode.trim().length > 0) {
         await Bun.write(testFileName, testCode);
         console.log(`✅ Teste ${testExists ? 'atualizado' : 'gerado'} e guardado em: ${testFileName}`);
@@ -145,7 +140,7 @@ async function runAIBot() {
          await $`git remote set-url origin http://${REPO_OWNER}:${GITEA_TOKEN}@192.168.31.215:3099/${REPO_OWNER}/${REPO_NAME}.git`;
          await $`git add .`;
          
-         // Verifica se há algo para commitar antes de tentar
+         // Verifica se há alterações REAIS antes de tentar commitar
          const hasChanges = await $`git status --porcelain`.quiet().text();
          if (hasChanges.trim().length > 0) {
             // O [skip ci] impede que o push do bot acione a pipeline do Woodpecker num loop infinito
@@ -153,11 +148,11 @@ async function runAIBot() {
             await $`git push origin HEAD:main`; 
             console.log("🎉 Commit do Bot guardado no repositório!");
          } else {
-            console.log("ℹ️ Os testes foram gerados com o mesmo código existente, não há alterações para commitar.");
+            console.log("ℹ️ Os testes gerados são iguais aos existentes, nenhuma alteração para commitar.");
          }
          
       } else {
-         console.warn("💀 ALERTA: A IA gerou um teste inválido. A reverter os testes gerados para proteger a branch main.");
+         console.warn("💀 ALERTA: A IA gerou um teste inválido. Revertendo alterações para proteger a branch main.");
          await $`git restore --staged .`.quiet().catch(() => {});
          await $`git checkout -- .`.quiet().catch(() => {});
          await $`git clean -fd`.quiet().catch(() => {}); 
