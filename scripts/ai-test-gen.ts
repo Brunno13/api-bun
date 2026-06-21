@@ -1,15 +1,15 @@
 import { $ } from "bun";
 
 // Configurações provenientes do Woodpecker CI (Secrets)
-const LLM_URL = process.env.LOCAL_LLM_URL || "[http://192.168.31.200:11434/v1/chat/completions](http://192.168.31.200:11434/v1/chat/completions)";
-const LLM_MODEL = process.env.LOCAL_LLM_MODEL || "qwen2.5-coder";
+const LLM_URL = process.env.LOCAL_LLM_URL;
+const LLM_MODEL = process.env.LOCAL_LLM_MODEL;
 const REPO_OWNER = process.env.CI_REPO_OWNER;
 const REPO_NAME = process.env.CI_REPO_NAME;
 const GITEA_TOKEN = process.env.GITEA_TOKEN;
 
 async function runAIBot() {
   try {
-    // 1. Carrega as "Skills" (Prompt de Sistema) do ficheiro Markdown
+    // 1. Carrega as "Skills" (Prompt de Sistema) do arquivo Markdown
     let baseSkills = "Você é um assistente de IA focado em testes unitários.";
     const skillsFile = Bun.file(".ai/test-skills.md");
     if (await skillsFile.exists()) {
@@ -47,10 +47,22 @@ async function runAIBot() {
       // Filtro Estrutural: Ignora interfaces, types, mensagens de erro, configs e injeção de dependência
       if (
         file.includes('/domain/') || 
+        file.includes('/domain/') || 
+        file.includes('/messages/') || 
         file.includes('/messages/') || 
         file.includes('/errors/') || 
+        file.includes('/errors/') || 
+        file.includes('/utils/') || 
+        file.includes('/auth/') || 
+        file.includes('/db/') ||
+        file.includes('/middlewares/') ||
+        file.includes('types.ts') || 
+        file.includes('errors.ts') || 
+        file.includes('drizzle.config') || 
         file.includes('drizzle.config') || 
         file.includes('container.ts') || 
+        file.includes('container.ts') || 
+        file.includes('config.ts') || 
         file.endsWith('index.ts')
       ) {
         console.log(`⏩ Ignorando arquivo estrutural (não necessita testes de IA): ${file}`);
