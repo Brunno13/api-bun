@@ -18,6 +18,8 @@ RUNNER: ONLY import from bun:test (describe, it, expect, mock, spyOn, beforeEach
 MOCKING: Use mock().mockResolvedValue(data) or mock().mockReturnValue(data).
 
 GLOBAL LOGGERS: If testing files that import logger from src/core/utils/logger, always ignore its output or mock it to prevent console spam.
+
+ENVIRONMENT: Always set process.env.NODE_ENV = "test"; at the very top of the test file.
 </framework_rules>
 
 <layer_strategies>
@@ -44,23 +46,34 @@ Goal: Test Elysia API endpoints WITHOUT calling .listen().
 
 Dependencies: You MUST Mock the Awilix DI container perfectly using createContainer and asValue.
 
-BETTER AUTH MOCKING (CRITICAL): You MUST spy on Better Auth API methods called during route creation (like generateOpenAPISchema).
+AVOIDING DB CRASHES: Route files usually import auth.ts or db.ts which execute top-level DB connections. You MUST mock these modules using mock.module BEFORE importing the actual route file.
 
-Setup Example:
+Setup Example (CRITICAL STRUCTURE):
 
-import { describe, it, expect, beforeEach, spyOn, mock } from "bun:test";
+import { describe, it, expect, beforeEach, mock } from "bun:test";
+
+// 1. MUST BE AT THE VERY TOP: Prevent actual DB connection from top-level imports
+mock.module("../infrastructure/auth/auth", () => ({
+  auth: {
+    api: {
+      generateOpenAPISchema: mock().mockResolvedValue({ components: {}, paths: {} }),
+      getSession: mock().mockResolvedValue(null) // Override inside tests if needed
+    },
+    handler: mock()
+  }
+}));
+
+// 2. NOW we can safely import Awilix and the Routes
 import { createContainer, asValue } from "awilix";
-import { auth } from "../../infrastructure/auth/auth"; // Adjust path
 import { createApp } from "./routes"; // Adjust path
+
+process.env.NODE_ENV = "test"; // Bypass logs
 
 describe("Routes Test", () => {
   let testApp: any;
 
   beforeEach(async () => {
-    // 1. CRITICAL: Prevent Better Auth from crashing the test during Elysia instantiation
-    spyOn(auth.api, "generateOpenAPISchema").mockResolvedValue({ components: {}, paths: {} } as any);
-
-    // 2. Setup Awilix Container
+    // 3. Setup Awilix Container
     const di = createContainer();
     di.register({ 
       userManager: asValue({ 
@@ -69,15 +82,12 @@ describe("Routes Test", () => {
       } as any) 
     });
 
-    // 3. Create Elysia App
+    // 4. Create Elysia App safely
     testApp = await createApp(di as any);
   });
 
-  it("should handle request", async () => {
-    // Mock session for protected/RBAC routes
-    spyOn(auth.api, "getSession").mockResolvedValue({ session: { role: 'ADMIN' } } as any);
-
-    const res = await testApp.handle(new Request('http://localhost/path'));
+  it("should handle base request", async () => {
+    const res = await testApp.handle(new Request('http://localhost/'));
     expect(res.status).toBe(200);
   });
 });
