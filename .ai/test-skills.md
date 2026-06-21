@@ -16,12 +16,14 @@ COMPLETE FILE: Do not truncate. Always output the full, complete test file.
 RUNNER: ONLY import from bun:test (describe, it, expect, mock, spyOn, beforeEach, afterEach). NO Jest/Vitest.
 
 MOCKING: Use mock().mockResolvedValue(data) or mock().mockReturnValue(data).
+
+GLOBAL LOGGERS: If testing files that import logger from src/core/utils/logger, always ignore its output or mock it to prevent console spam.
 </framework_rules>
 
 <layer_strategies>
 [USE_CASES]
 
-Goal: Isolate logic. Mock injected dependencies.
+Goal: Isolate pure business logic. Mock all injected Awilix dependencies.
 
 Example:
 const manager = new Manager({ repo: { findById: mock() } as any });
@@ -36,26 +38,30 @@ Setup:
 let testDb = new Database(":memory:"); testDb.exec("CREATE TABLE..."); const repo = new Repo({ db: drizzle(testDb) });
 afterEach(() => testDb.close());
 
-[PRESENTATION_AND_ROUTES]
+[PRESENTATION_AND_ROUTES (CRITICAL)]
 
-Goal: Test Elysia API endpoints WITHOUT .listen().
+Goal: Test Elysia API endpoints WITHOUT calling .listen().
 
 Dependencies: You MUST Mock the Awilix DI container perfectly using createContainer and asValue.
+
+BETTER AUTH MOCKING (CRITICAL): You MUST spy on Better Auth API methods called during route creation (like generateOpenAPISchema).
 
 Setup Example:
 
 import { describe, it, expect, beforeEach, spyOn, mock } from "bun:test";
 import { createContainer, asValue } from "awilix";
-import { auth } from "../../infrastructure/auth/auth"; 
-import { createApp } from "./routes"; 
+import { auth } from "../../infrastructure/auth/auth"; // Adjust path
+import { createApp } from "./routes"; // Adjust path
 
 describe("Routes Test", () => {
   let testApp: any;
 
   beforeEach(async () => {
-    const di = createContainer();
+    // 1. CRITICAL: Prevent Better Auth from crashing the test during Elysia instantiation
+    spyOn(auth.api, "generateOpenAPISchema").mockResolvedValue({ components: {}, paths: {} } as any);
 
-    // CRITICAL: Use 'as any' to avoid TS errors
+    // 2. Setup Awilix Container
+    const di = createContainer();
     di.register({ 
       userManager: asValue({ 
         create: mock().mockResolvedValue({ id: '1' }), 
@@ -63,10 +69,12 @@ describe("Routes Test", () => {
       } as any) 
     });
 
+    // 3. Create Elysia App
     testApp = await createApp(di as any);
   });
 
   it("should handle request", async () => {
+    // Mock session for protected/RBAC routes
     spyOn(auth.api, "getSession").mockResolvedValue({ session: { role: 'ADMIN' } } as any);
 
     const res = await testApp.handle(new Request('http://localhost/path'));
@@ -75,12 +83,9 @@ describe("Routes Test", () => {
 });
 
 
-Requests: const res = await testApp.handle(new Request('http://localhost/path'));
+Requests: const res = await testApp.handle(new Request('http://localhost/path', { method: 'POST', body: JSON.stringify({...}) }));
 
 Response Body: Use await res.json(); or await res.text(); to read the response.
-
-Better Auth (RBAC): If the route is protected, ALWAYS mock the session using spyOn:
-spyOn(auth.api, "getSession").mockResolvedValue({ session: { role: 'ADMIN' } } as any);
 </layer_strategies>
 
 <code_structure>
