@@ -44,4 +44,4 @@ export class UserManager {
     
     return true;
   }
-}
+} //teste

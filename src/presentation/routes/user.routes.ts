@@ -86,4 +86,4 @@ export const userRoutes = (di: AwilixContainer) => {
         },
       },
     );
-};
+}; //teste
