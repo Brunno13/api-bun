@@ -8,10 +8,12 @@ clone:
     image: woodpeckerci/plugin-git
     extra_hosts:
       - "gitea.brunnoserver.duckdns.org:192.168.31.215"
+    tags: true
+    depth: 50
 
 steps:
   # =========================================================
-  # FASE 1: Testes e Build
+  # FASE 1: Test and Build
   # =========================================================
   - name: testar-codigo
     image: oven/bun:alpine
@@ -20,8 +22,7 @@ steps:
       - bun install
       - echo "Executando a suíte de testes existente..."
       - bun test
-
-  # NOVO: Passo que chama a LLM Local (Roda após os testes originais passarem)
+      
   - name: bot-testes-ia
     image: oven/bun:alpine
     environment:
@@ -61,7 +62,7 @@ steps:
       - docker build -t api-bun:latest .
 
   # =========================================================
-  # FASE 2: Staging (Roda APENAS no push para a branch main)
+  # FASE 2: Staging (only when push in branch main)
   # =========================================================
   - name: deploy-staging
     image: docker:cli
@@ -87,7 +88,7 @@ steps:
         branch: main
 
   # =========================================================
-  # FASE 3: Produção (Roda APENAS quando uma Tag de versão é criada)
+  # FASE 3: PRODUCTION (tag release)
   # =========================================================
   - name: gerar-release-notes
     image: alpine
@@ -116,7 +117,6 @@ steps:
         
         ---
         
-        ### 🔄 Histórico de Commits
         $CHANGELOG"
         
         echo "$RELEASE_BODY" > .release_body.txt
@@ -126,17 +126,23 @@ steps:
         echo "=== ENVIANDO RELEASE PARA O GITEA ==="
         RESPONSE=$(curl -s -X POST "http://192.168.31.215:3099/api/v1/repos/${CI_REPO_OWNER}/${CI_REPO_NAME}/releases" -H "accept: application/json" -H "Authorization: token $GITEA_TOKEN" -H "Content-Type: application/json" -d "$JSON_PAYLOAD")
         
+        echo "Resposta da API do Gitea: $RESPONSE"
         RELEASE_ID=$(echo "$RESPONSE" | jq -r '.id')
         
         if [ "$RELEASE_ID" == "null" ] || [ -z "$RELEASE_ID" ]; then
-          echo "❌ ERRO: O Gitea não retornou um ID válido."
+          echo "❌ ERRO: O Gitea não retornou um ID válido. Se a Tag já existir, apague-a no painel e tente novamente."
           exit 1
         fi
+        
+        echo "=== VERIFICANDO PASTA DE BINÁRIOS ==="
+        ls -la ./bin/
         
         echo "=== INICIANDO UPLOAD DOS ANEXOS ==="
         curl -f -s -X POST "http://192.168.31.215:3099/api/v1/repos/${CI_REPO_OWNER}/${CI_REPO_NAME}/releases/$RELEASE_ID/assets?name=api-bun-linux" -H "Authorization: token $GITEA_TOKEN" -F "attachment=@./bin/api-bun-linux"
         curl -f -s -X POST "http://192.168.31.215:3099/api/v1/repos/${CI_REPO_OWNER}/${CI_REPO_NAME}/releases/$RELEASE_ID/assets?name=api-bun-windows.exe" -H "Authorization: token $GITEA_TOKEN" -F "attachment=@./bin/api-bun-windows.exe"
         curl -f -s -X POST "http://192.168.31.215:3099/api/v1/repos/${CI_REPO_OWNER}/${CI_REPO_NAME}/releases/$RELEASE_ID/assets?name=api-bun-macos" -H "Authorization: token $GITEA_TOKEN" -F "attachment=@./bin/api-bun-macos"
+        
+        echo "✅ DEPLOY FINALIZADO COM SUCESSO NO GITEA!"
     when:
       - event: tag
 
@@ -180,6 +186,7 @@ steps:
         RELEASE_ID=$(echo "$RESPONSE" | jq -r '.id')
         
         if [ "$RELEASE_ID" == "null" ] || [ -z "$RELEASE_ID" ]; then
+          echo "❌ ERRO: O GitHub não retornou um ID válido. Resposta: $RESPONSE"
           exit 1
         fi
         
@@ -189,6 +196,8 @@ steps:
         curl -f -s -X POST "$GH_UPLOAD_URL?name=api-bun-linux" -H "Authorization: Bearer $GITHUB_TOKEN" -H "Content-Type: application/octet-stream" --data-binary @"./bin/api-bun-linux"
         curl -f -s -X POST "$GH_UPLOAD_URL?name=api-bun-windows.exe" -H "Authorization: Bearer $GITHUB_TOKEN" -H "Content-Type: application/octet-stream" --data-binary @"./bin/api-bun-windows.exe"
         curl -f -s -X POST "$GH_UPLOAD_URL?name=api-bun-macos" -H "Authorization: Bearer $GITHUB_TOKEN" -H "Content-Type: application/octet-stream" --data-binary @"./bin/api-bun-macos"
+        
+        echo "✅ RELEASE NO GITHUB CRIADA COM SUCESSO!"
     when:
       - event: tag
 

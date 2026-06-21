@@ -1,14 +1,15 @@
 import { $ } from "bun";
 
-const LLM_URL = process.env.LOCAL_LLM_URL;
-const LLM_MODEL = process.env.LOCAL_LLM_MODEL;
+// Configurações provenientes do Woodpecker CI (Secrets)
+const LLM_URL = process.env.LOCAL_LLM_URL || "[http://192.168.31.200:11434/v1/chat/completions](http://192.168.31.200:11434/v1/chat/completions)";
+const LLM_MODEL = process.env.LOCAL_LLM_MODEL || "qwen2.5-coder";
 const REPO_OWNER = process.env.CI_REPO_OWNER;
 const REPO_NAME = process.env.CI_REPO_NAME;
 const GITEA_TOKEN = process.env.GITEA_TOKEN;
 
 async function runAIBot() {
   try {
-    // 1. Carrega as "Skills" (Prompt de Sistema) do arquivo Markdown
+    // 1. Carrega as "Skills" (Prompt de Sistema) do ficheiro Markdown
     let baseSkills = "Você é um assistente de IA focado em testes unitários.";
     const skillsFile = Bun.file(".ai/test-skills.md");
     if (await skillsFile.exists()) {
@@ -16,8 +17,22 @@ async function runAIBot() {
       console.log("🧠 Habilidades da IA carregadas do diretório .ai/test-skills.md");
     }
 
-    // 2. Identifica os arquivos .ts alterados no último push
-    const diffOutput = await $`git diff --name-only HEAD^ HEAD`.quiet().text();
+    // 2. Identifica os arquivos .ts alterados de forma segura (previne erro HEAD^)
+    let diffOutput = "";
+    try {
+      // Tenta verificar se há mais de um commit para comparar
+      const commitCount = parseInt(await $`git rev-list --count HEAD`.quiet().text());
+      if (commitCount > 1) {
+          diffOutput = await $`git diff --name-only HEAD^ HEAD`.quiet().text();
+      } else {
+          // Se for o primeiro commit da história, lista todos os arquivos no commit atual
+          diffOutput = await $`git ls-tree -r HEAD --name-only`.quiet().text();
+      }
+    } catch (e) {
+      console.warn("⚠️ Não foi possível usar HEAD^. Listando apenas as mudanças pendentes (se houver).");
+      diffOutput = await $`git diff --name-only HEAD`.quiet().text();
+    }
+    
     const allFiles = diffOutput.split('\n').filter(f => f.endsWith('.ts') && !f.endsWith('.test.ts') && f.length > 0);
 
     if (allFiles.length === 0) {
@@ -34,15 +49,8 @@ async function runAIBot() {
         file.includes('/domain/') || 
         file.includes('/messages/') || 
         file.includes('/errors/') || 
-        file.includes('/utils/') || 
-        file.includes('/auth/') || 
-        file.includes('/db/') ||
-        file.includes('/middlewares/') ||
-        file.includes('types.ts') || 
-        file.includes('errors.ts') || 
         file.includes('drizzle.config') || 
         file.includes('container.ts') || 
-        file.includes('config.ts') || 
         file.endsWith('index.ts')
       ) {
         console.log(`⏩ Ignorando arquivo estrutural (não necessita testes de IA): ${file}`);
