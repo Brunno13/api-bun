@@ -88,4 +88,4 @@ export class DrizzleUserRepository implements UserRepository {
       .map((item) => this.mapToDomain(item))
       .filter((u): u is User => u !== null);
   }
-} //teste
+}
