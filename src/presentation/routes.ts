@@ -111,4 +111,4 @@ export const createApp = async (di: AwilixContainer) => {
     })
 
     .use(userRoutes(di));
-}; //teste
+};
