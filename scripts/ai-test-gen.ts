@@ -1,7 +1,7 @@
 import { $ } from "bun";
 
-const LLM_URL = process.env.LOCAL_LLM_URL || "[http://192.168.31.58:11434/v1/chat/completions](http://192.168.31.58:11434/v1/chat/completions)";
-const LLM_MODEL = process.env.LOCAL_LLM_MODEL || "gemma4:12b";
+const LLM_URL = process.env.LOCAL_LLM_URL;
+const LLM_MODEL = process.env.LOCAL_LLM_MODEL;
 const REPO_OWNER = process.env.CI_REPO_OWNER;
 const REPO_NAME = process.env.CI_REPO_NAME;
 const GITEA_TOKEN = process.env.GITEA_TOKEN;
