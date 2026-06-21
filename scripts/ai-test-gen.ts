@@ -118,51 +118,58 @@ async function runAIBot() {
       if (match && match[1]) {
         testCode = match[1];
       } else {
-         // Fallback de segurança caso a IA não retorne os marcadores
-         console.warn(`⚠️ A IA não usou os marcadores de código para ${file}. Tentando usar a resposta bruta.`);
-         testCode = aiMessage;
+         console.warn(`⚠️ A IA não usou marcadores de código para ${file}. Limpando resposta bruta...`);
+         const lines = aiMessage.split('\n');
+         const codeLines = lines.filter((l: string) => !l.toLowerCase().includes('aqui está') && !l.toLowerCase().includes('claro') && !l.toLowerCase().includes('entendido'));
+         testCode = codeLines.join('\n');
       }
 
       // Evita gravar arquivos vazios ou quebrados
-      if (testCode.trim().length > 0) {
-        await Bun.write(testFileName, testCode);
-        console.log(`✅ Teste ${testExists ? 'atualizado' : 'gerado'} e guardado em: ${testFileName}`);
-        novosTestes++;
+      if (testCode.trim().length > 10) { // Garante que há pelo menos uma linha de código real
+        try {
+            await Bun.write(testFileName, testCode.trim());
+            console.log(`✅ Teste ${testExists ? 'atualizado' : 'gerado'} e guardado em: ${testFileName}`);
+            novosTestes++;
+        } catch (e) {
+            console.error(`❌ Erro de I/O ao gravar o arquivo ${testFileName}`, e);
+        }
       } else {
-          console.warn(`❌ Falha ao extrair código utilizável para ${file}`);
+          console.warn(`❌ Falha: A IA retornou um código vazio ou inútil para ${file}`);
       }
     }
 
     // 4. Validação e Commit Automático
     if (novosTestes > 0) {
-      console.log("🧪 Validando se a IA escreveu código funcional...");
-      const testResult = await $`bun test`.quiet().catch(err => err);
+      console.log(`🧪 ${novosTestes} novo(s) teste(s) gerado(s). Validando se a IA escreveu código funcional...`);
       
-      if (testResult.exitCode === 0) {
-         console.log("🚀 SUCESSO! Os testes passaram. Enviando para o Gitea...");
+      try {
+        const testResult = await $`bun test`.quiet();
+        console.log("🚀 SUCESSO! Os testes passaram perfeitamente. Enviando para o Gitea...");
          
-         await $`git config --global user.name "Woodpecker AI Bot"`;
-         await $`git config --global user.email "ai-bot@brunnoserver.duckdns.org"`;
-         await $`git remote set-url origin http://${REPO_OWNER}:${GITEA_TOKEN}@192.168.31.215:3099/${REPO_OWNER}/${REPO_NAME}.git`;
-         await $`git add .`;
+        await $`git config --global user.name "Woodpecker AI Bot"`;
+        await $`git config --global user.email "ai-bot@brunnoserver.duckdns.org"`;
+        await $`git remote set-url origin http://${REPO_OWNER}:${GITEA_TOKEN}@192.168.31.215:3099/${REPO_OWNER}/${REPO_NAME}.git`;
+        await $`git add .`;
          
-         // Verifica se há alterações REAIS antes de tentar commitar
-         const hasChanges = await $`git status --porcelain`.quiet().text();
-         if (hasChanges.trim().length > 0) {
-            // O [skip ci] impede que o push do bot acione a pipeline do Woodpecker num loop infinito
+        const hasChanges = await $`git status --porcelain`.quiet().text();
+        if (hasChanges.trim().length > 0) {
             await $`git commit -m "test: sincronizados via LLM Local [skip ci]"`;
             await $`git push origin HEAD:main`; 
             console.log("🎉 Commit do Bot guardado no repositório!");
-         } else {
+        } else {
             console.log("ℹ️ Os testes gerados são iguais aos existentes, nenhuma alteração para commitar.");
-         }
+        }
+      } catch (err: any) {
+         console.warn(`💀 ALERTA: A IA gerou um teste inválido (Exit code: ${err.exitCode}). Revertendo alterações...`);
+         if(err.stdout) console.log("Detalhes da falha (stdout):", err.stdout.toString());
+         if(err.stderr) console.error("Detalhes da falha (stderr):", err.stderr.toString());
          
-      } else {
-         console.warn("💀 ALERTA: A IA gerou um teste inválido. Revertendo alterações para proteger a branch main.");
          await $`git restore --staged .`.quiet().catch(() => {});
          await $`git checkout -- .`.quiet().catch(() => {});
          await $`git clean -fd`.quiet().catch(() => {}); 
       }
+    } else {
+       console.log("ℹ️ A IA não gerou nenhum código válido. Nada a commitar.");
     }
 
   } catch (error) {
