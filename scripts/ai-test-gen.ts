@@ -1,8 +1,8 @@
 import { $ } from "bun";
 
 // Configurações provenientes do Woodpecker CI (Secrets)
-const LLM_URL = process.env.LOCAL_LLM_URL || "http://192.168.31.200:11434/v1/chat/completions";
-const LLM_MODEL = process.env.LOCAL_LLM_MODEL || "qwen2.5-coder";
+const LLM_URL = process.env.LOCAL_LLM_URL;
+const LLM_MODEL = process.env.LOCAL_LLM_MODEL;
 const REPO_OWNER = process.env.CI_REPO_OWNER;
 const REPO_NAME = process.env.CI_REPO_NAME;
 const GITEA_TOKEN = process.env.GITEA_TOKEN;
@@ -17,52 +17,50 @@ async function runAIBot() {
       console.log("🧠 Habilidades da IA carregadas do diretório .ai/test-skills.md");
     }
 
-    // 2. Identifica APENAS os arquivos alterados neste push/commit
+    // 2. Identifica os arquivos .ts alterados de forma segura (previne erro HEAD^)
     let diffOutput = "";
     try {
-      const prevSha = process.env.CI_PREV_COMMIT_SHA;
-      const currSha = process.env.CI_COMMIT_SHA || "HEAD";
-      
-      // Utiliza as variáveis nativas do Woodpecker para comparar exatamente o que veio neste push
-      if (prevSha && prevSha !== "0000000000000000000000000000000000000000") {
-        diffOutput = await $`git diff --name-only ${prevSha} ${currSha}`.quiet().text();
+      // Tenta verificar se há mais de um commit para comparar
+      const commitCount = parseInt(await $`git rev-list --count HEAD`.quiet().text());
+      if (commitCount > 1) {
+          diffOutput = await $`git diff --name-only HEAD^ HEAD`.quiet().text();
       } else {
-        diffOutput = await $`git diff-tree --no-commit-id --name-only -r ${currSha}`.quiet().text();
+          // Se for o primeiro commit da história, lista todos os arquivos no commit atual
+          diffOutput = await $`git ls-tree -r HEAD --name-only`.quiet().text();
       }
     } catch (e) {
-      console.warn("⚠️ Aviso: Comando Git falhou, usando git show como fallback.");
-      diffOutput = await $`git show --name-only --format="" HEAD`.quiet().text();
+      console.warn("⚠️ Não foi possível usar HEAD^. Listando apenas as mudanças pendentes (se houver).");
+      diffOutput = await $`git diff --name-only HEAD`.quiet().text();
     }
     
-    const changedFiles = diffOutput.split('\n')
-      .map(f => f.trim())
-      .filter(f => f.endsWith('.ts') && !f.endsWith('.test.ts') && f.length > 0);
+    const allFiles = diffOutput.split('\n').filter(f => f.endsWith('.ts') && !f.endsWith('.test.ts') && f.length > 0);
 
-    if (changedFiles.length === 0) {
-      console.log("ℹ️ Nenhum arquivo fonte modificado neste commit. O AI Bot vai descansar.");
+    if (allFiles.length === 0) {
+      console.log("ℹ️ Nenhum arquivo fonte modificado. O AI Bot vai descansar.");
       process.exit(0);
     }
 
     let novosTestes = 0;
 
-    // 3. Loop para processar apenas arquivos VÁLIDOS e ALTERADOS
-    for (const file of changedFiles) {
+    // 3. Loop para processar apenas arquivos válidos
+    for (const file of allFiles) {
+      // Filtro Estrutural: Ignora interfaces, types, mensagens de erro, configs e injeção de dependência
       if (
-        file.includes('/domain/') || 
-        file.includes('/messages/') || 
-        file.includes('/errors/') || 
-        file.includes('/utils/') || 
-        file.includes('/auth/') || 
+        file.includes('/domain/') ||
+        file.includes('/messages/') ||
+        file.includes('/errors/') ||
+        file.includes('/utils/') ||
+        file.includes('/auth/') ||
         file.includes('/db/') ||
         file.includes('/middlewares/') ||
-        file.includes('types.ts') || 
-        file.includes('errors.ts') || 
-        file.includes('drizzle.config') || 
-        file.includes('container.ts') || 
-        file.includes('config.ts') || 
+        file.includes('types.ts') ||
+        file.includes('errors.ts') ||
+        file.includes('drizzle.config') ||
+        file.includes('container.ts') ||
+        file.includes('config.ts') ||
         file.endsWith('index.ts')
       ) {
-        console.log(`⏭️ Ignorando arquivo estrutural (não necessita testes de IA): ${file}`);
+        console.log(`⏩ Ignorando arquivo estrutural (não necessita testes de IA): ${file}`);
         continue;
       }
 
@@ -77,15 +75,15 @@ async function runAIBot() {
       const testFileName = file.replace('.ts', '.test.ts');
       const testExists = await Bun.file(testFileName).exists();
       
+      // Crases escapadas para não quebrar a formatação do script
       let prompt = `Baseado nas diretrizes fornecidas, atue no seguinte arquivo: ${file}\n\nCódigo do arquivo:\n\`\`\`typescript\n${content}\n\`\`\`\n`;
 
-      // Como o arquivo já está na lista "changedFiles", ele sofreu alteração.
       if (testExists) {
-        console.log(`🔄 Arquivo já possui teste e FOI ALTERADO. Solicitando ATUALIZAÇÃO do teste para: ${file}...`);
+        console.log(`🔄 Arquivo já possui teste. Solicitando ATUALIZAÇÃO do teste para: ${file}...`);
         const existingTestContent = await Bun.file(testFileName).text();
         prompt += `\n⚠️ ATENÇÃO: Já existe um teste para este arquivo. Por favor, ATUALIZE-O para refletir as novas mudanças do código fonte, mantendo o que já funcionava.\n\nTeste Atual:\n\`\`\`typescript\n${existingTestContent}\n\`\`\``;
       } else {
-        console.log(`🤖 Arquivo modificado/novo não possui teste. Solicitando CRIAÇÃO de teste para: ${file}...`);
+        console.log(`🤖 Solicitando NOVO teste unitário para: ${file}...`);
         prompt += `\nEscreva um novo teste unitário completo para este código.`;
       }
 
@@ -118,58 +116,52 @@ async function runAIBot() {
       if (match && match[1]) {
         testCode = match[1];
       } else {
-         console.warn(`⚠️ A IA não usou marcadores de código para ${file}. Limpando resposta bruta...`);
-         const lines = aiMessage.split('\n');
-         const codeLines = lines.filter((l: string) => !l.toLowerCase().includes('aqui está') && !l.toLowerCase().includes('claro') && !l.toLowerCase().includes('entendido'));
-         testCode = codeLines.join('\n');
+         // Fallback: se a IA não colocar os marcadores, tenta usar a resposta toda
+         // Isto evita o erro se o modelo for desobediente
+         console.warn(`⚠️ A IA não usou os marcadores de código para ${file}. Tentando usar a resposta bruta.`);
+         testCode = aiMessage;
       }
 
-      // Evita gravar arquivos vazios ou quebrados
-      if (testCode.trim().length > 10) { // Garante que há pelo menos uma linha de código real
-        try {
-            await Bun.write(testFileName, testCode.trim());
-            console.log(`✅ Teste ${testExists ? 'atualizado' : 'gerado'} e guardado em: ${testFileName}`);
-            novosTestes++;
-        } catch (e) {
-            console.error(`❌ Erro de I/O ao gravar o arquivo ${testFileName}`, e);
-        }
+      // Evita gravar arquivos vazios
+      if (testCode.trim().length > 0) {
+        await Bun.write(testFileName, testCode);
+        console.log(`✅ Teste ${testExists ? 'atualizado' : 'gerado'} e guardado em: ${testFileName}`);
+        novosTestes++;
       } else {
-          console.warn(`❌ Falha: A IA retornou um código vazio ou inútil para ${file}`);
+          console.warn(`❌ Falha ao extrair código utilizável para ${file}`);
       }
     }
 
     // 4. Validação e Commit Automático
     if (novosTestes > 0) {
-      console.log(`🧪 ${novosTestes} novo(s) teste(s) gerado(s). Validando se a IA escreveu código funcional...`);
+      console.log("🧪 Validando se a IA escreveu código funcional...");
+      const testResult = await $`bun test`.quiet().catch(err => err);
       
-      try {
-        const testResult = await $`bun test`.quiet();
-        console.log("🚀 SUCESSO! Os testes passaram perfeitamente. Enviando para o Gitea...");
+      if (testResult.exitCode === 0) {
+         console.log("🚀 SUCESSO! Os testes passaram. Enviando para o Gitea...");
          
-        await $`git config --global user.name "Woodpecker AI Bot"`;
-        await $`git config --global user.email "ai-bot@brunnoserver.duckdns.org"`;
-        await $`git remote set-url origin http://${REPO_OWNER}:${GITEA_TOKEN}@192.168.31.215:3099/${REPO_OWNER}/${REPO_NAME}.git`;
-        await $`git add .`;
+         await $`git config --global user.name "Woodpecker AI Bot"`;
+         await $`git config --global user.email "ai-bot@brunnoserver.duckdns.org"`;
+         await $`git remote set-url origin http://${REPO_OWNER}:${GITEA_TOKEN}@192.168.31.215:3099/${REPO_OWNER}/${REPO_NAME}.git`;
+         await $`git add .`;
          
-        const hasChanges = await $`git status --porcelain`.quiet().text();
-        if (hasChanges.trim().length > 0) {
+         // Verifica se há algo para commitar antes de tentar
+         const hasChanges = await $`git status --porcelain`.quiet().text();
+         if (hasChanges.trim().length > 0) {
+            // O [skip ci] impede que o push do bot acione a pipeline do Woodpecker num loop infinito
             await $`git commit -m "test: sincronizados via LLM Local [skip ci]"`;
             await $`git push origin HEAD:main`; 
             console.log("🎉 Commit do Bot guardado no repositório!");
-        } else {
-            console.log("ℹ️ Os testes gerados são iguais aos existentes, nenhuma alteração para commitar.");
-        }
-      } catch (err: any) {
-         console.warn(`💀 ALERTA: A IA gerou um teste inválido (Exit code: ${err.exitCode}). Revertendo alterações...`);
-         if(err.stdout) console.log("Detalhes da falha (stdout):", err.stdout.toString());
-         if(err.stderr) console.error("Detalhes da falha (stderr):", err.stderr.toString());
+         } else {
+            console.log("ℹ️ Os testes foram gerados com o mesmo código existente, não há alterações para commitar.");
+         }
          
+      } else {
+         console.warn("💀 ALERTA: A IA gerou um teste inválido. A reverter os testes gerados para proteger a branch main.");
          await $`git restore --staged .`.quiet().catch(() => {});
          await $`git checkout -- .`.quiet().catch(() => {});
          await $`git clean -fd`.quiet().catch(() => {}); 
       }
-    } else {
-       console.log("ℹ️ A IA não gerou nenhum código válido. Nada a commitar.");
     }
 
   } catch (error) {
