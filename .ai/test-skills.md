@@ -1,33 +1,30 @@
 <output_constraints>
 
-OUTPUT ONLY VALID TYPESCRIPT CODE.
+OUTPUT ONLY VALID, RUNNABLE TYPESCRIPT CODE.
 
-ENCLOSE CODE in a single ```typescript block.
+ENCLOSE CODE in a single ```typescript block. ZERO markdown text outside the code block.
 
-ZERO explanations, ZERO markdown text outside the code block.
+ASSUME COLOCATION: Test files are in the EXACT SAME folder as source files. Use ./filename to import the target module.
 
-ASSUME COLOCATION: The test file is in the EXACT SAME folder as the source file. Use ./filename to import the tested module.
+TYPESCRIPT FIX: Use as any AGGRESSIVELY on mock objects and Awilix DI containers to bypass TS strict mode compilation errors.
 
-TYPESCRIPT FIX: Always cast mock objects with as any when passing them to constructors/functions to avoid TS strict type errors.
+COMPLETE FILE: Do not truncate. Always output the full, complete test file.
 </output_constraints>
 
 <framework_rules>
 
-Runner: ONLY bun:test (describe, it, expect, mock, spyOn, beforeEach, afterEach). NO Jest/Vitest.
+RUNNER: ONLY import from bun:test (describe, it, expect, mock, spyOn, beforeEach, afterEach). NO Jest/Vitest.
 
-Mocking: Use mock().mockResolvedValue(...) or mock().mockReturnValue(...).
+MOCKING: Use mock().mockResolvedValue(data) or mock().mockReturnValue(data).
 </framework_rules>
 
 <layer_strategies>
 [USE_CASES]
 
-Goal: Pure logic isolation.
-
-Action: Mock injected Awilix dependencies.
+Goal: Isolate logic. Mock injected dependencies.
 
 Example:
-const mockRepo = { findById: mock().mockResolvedValue(null) };
-const sut = new Manager({ repo: mockRepo as any });
+const manager = new Manager({ repo: { findById: mock() } as any });
 
 [REPOSITORIES]
 
@@ -36,30 +33,38 @@ Goal: SQLite In-Memory Integration.
 Imports: import { Database } from "bun:sqlite"; import { drizzle } from "drizzle-orm/bun-sqlite";
 
 Setup:
-beforeEach(() => { db = new Database(":memory:"); db.exec("CREATE TABLE..."); repo = new Repo({ db: drizzle(db) }); });
-afterEach(() => { db.close(); });
+let testDb = new Database(":memory:"); testDb.exec("CREATE TABLE..."); const repo = new Repo({ db: drizzle(testDb) });
+afterEach(() => testDb.close());
 
-[PRESENTATION_AND_ROUTES]
+[PRESENTATION_AND_ROUTES (CRITICAL)]
 
-Goal: API endpoint testing without starting the server.
+Goal: Test Elysia API endpoints WITHOUT .listen().
 
-Web Framework: Elysia. DO NOT call .listen().
+Dependencies: You MUST Mock the Awilix DI container perfectly using createContainer and asValue.
 
-Container Mocking (Awilix): If testing createApp(di), create a mock container:
+Setup Example:
+
 import { createContainer, asValue } from "awilix";
-const di = createContainer(); di.register({ userManager: asValue({ /* mocks */ }) });
-const app = await createApp(di);
+import { createApp } from "./routes"; // import the file you are testing
 
-Request: const res = await app.handle(new Request('http://localhost/path'));
+const di = createContainer();
+di.register({ userManager: asValue({ create: mock(), findById: mock() } as any) });
+const app = await createApp(di as any);
 
-Auth Mock: spyOn(auth.api, "getSession").mockResolvedValue({ session: { role: 'ADMIN' } } as any);
+
+Requests: const res = await app.handle(new Request('http://localhost/path'));
+
+Response Body: Use await res.json(); or await res.text(); to read the response.
+
+Better Auth (RBAC): If the route is protected, mock the session:
+spyOn(auth.api, "getSession").mockResolvedValue({ session: { role: 'ADMIN' } } as any);
 </layer_strategies>
 
 <code_structure>
 
 AAA Pattern (Arrange, Act, Assert).
 
-Block names it("should ...") in English.
+English block names: describe("..."), it("should ...").
 
-Try/Catch for Errors: try { await func(); } catch (e: any) { expect(e.statusCode).toBe(400); }
+Error Handling: try { await func(); } catch (e: any) { expect(e.statusCode).toBe(400); }
 </code_structure>
