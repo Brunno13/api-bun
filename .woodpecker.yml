@@ -8,8 +8,6 @@ clone:
     image: woodpeckerci/plugin-git
     extra_hosts:
       - "gitea.brunnoserver.duckdns.org:192.168.31.215"
-    tags: true
-    depth: 50
 
 steps:
   # =========================================================
@@ -20,25 +18,8 @@ steps:
     commands:
       - echo "Instalando dependências para os testes..."
       - bun install
-      - echo "Executando a suíte de testes existente..."
+      - echo "Executando a suíte de testes..."
       - bun test
-      
-  - name: bot-testes-ia
-    image: oven/bun:alpine
-    environment:
-      LOCAL_LLM_URL:
-        from_secret: local_llm_url
-      LOCAL_LLM_MODEL:
-        from_secret: local_llm_model
-      GITEA_TOKEN:
-        from_secret: gitea_token
-    commands:
-      - echo "Acordando o AI Bot Local..."
-      - apk add --no-cache git
-      - bun run scripts/ai-test-gen.ts
-    when:
-      - event: push
-        branch: main
 
   - name: build-executaveis
     image: oven/bun:alpine
