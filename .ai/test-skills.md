@@ -36,7 +36,7 @@ Setup:
 let testDb = new Database(":memory:"); testDb.exec("CREATE TABLE..."); const repo = new Repo({ db: drizzle(testDb) });
 afterEach(() => testDb.close());
 
-[PRESENTATION_AND_ROUTES (CRITICAL)]
+[PRESENTATION_AND_ROUTES]
 
 Goal: Test Elysia API endpoints WITHOUT .listen().
 
@@ -46,10 +46,8 @@ Setup Example:
 
 import { describe, it, expect, beforeEach, spyOn, mock } from "bun:test";
 import { createContainer, asValue } from "awilix";
-import { auth } from "../../infrastructure/auth/auth"; // Adjust path as needed
-import { createApp } from "./routes"; // Import the actual app creator
-// Import the specific route module if testing it directly
-// import { userRoutes } from "./user.routes"; 
+import { auth } from "../../infrastructure/auth/auth"; 
+import { createApp } from "./routes"; 
 
 describe("Routes Test", () => {
   let testApp: any;
@@ -57,8 +55,7 @@ describe("Routes Test", () => {
   beforeEach(async () => {
     const di = createContainer();
 
-    // CRITICAL: Register all necessary managers/services with mock functions
-    // Use 'as any' to avoid TS errors
+    // CRITICAL: Use 'as any' to avoid TS errors
     di.register({ 
       userManager: asValue({ 
         create: mock().mockResolvedValue({ id: '1' }), 
@@ -66,15 +63,10 @@ describe("Routes Test", () => {
       } as any) 
     });
 
-    // If testing createApp directly:
     testApp = await createApp(di as any);
-
-    // OR, if testing a specific route module that returns an Elysia instance:
-    // testApp = new Elysia().use(userRoutes(di as any));
   });
 
   it("should handle request", async () => {
-    // Mock session for protected routes
     spyOn(auth.api, "getSession").mockResolvedValue({ session: { role: 'ADMIN' } } as any);
 
     const res = await testApp.handle(new Request('http://localhost/path'));
