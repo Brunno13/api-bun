@@ -17,6 +17,10 @@ describe("Presentation Layer - User Routes (RBAC)", () => {
   let testDb: Database;
   let testDbInstance: BunSQLiteDatabase;
 
+  /**
+   * Helper to mock the session returned by auth.api.getSession
+   * This simulates the .derive() logic in the Elysia route.
+   */
   const mockSessionWithRole = (role: UserRole) => {
     spyOn(auth.api, "getSession").mockResolvedValue({
       session: {
@@ -49,6 +53,7 @@ describe("Presentation Layer - User Routes (RBAC)", () => {
     testDb = new Database(":memory:");
     testDbInstance = drizzle(testDb);
 
+    // Initialize schema in memory
     testDb.exec(`
       CREATE TABLE user (
         id TEXT PRIMARY KEY,
@@ -78,12 +83,19 @@ describe("Presentation Layer - User Routes (RBAC)", () => {
     testDb.close();
   });
 
-  it("POST /users should create a user if session is ADMIN", async () => {
+  it("POST /users should create a user when session is ADMIN", async () => {
+    mockSessionWithRole(UserRole.ADMIN);
+
     const response = await testApp.handle(
       new Request(`${BASE_URL}/users/`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ name: "User", age: 25, email: "u1@test.com", role: UserRole.VIEWER }),
+        body: JSON.stringify({ 
+          name: "New User", 
+          age: 25, 
+          email: "new@test.com", 
+          role: UserRole.VIEWER 
+        }),
       }),
     );
 
@@ -92,36 +104,44 @@ describe("Presentation Layer - User Routes (RBAC)", () => {
     expect(body).toHaveProperty("id");
   });
 
-  it("POST /users should return 403 FORBIDDEN if session is VIEWER", async () => {
+  it("POST /users should return 403 FORBIDDEN when session is VIEWER", async () => {
     mockSessionWithRole(UserRole.VIEWER);
 
     const response = await testApp.handle(
       new Request(`${BASE_URL}/users/`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ name: "User", age: 25, email: "u2@test.com" }),
+        body: JSON.stringify({ 
+          name: "Unauthorized User", 
+          age: 25, 
+          email: "unauth@test.com" 
+        }),
       }),
     );
 
     expect(response.status).toBe(HttpStatus.FORBIDDEN);
   });
 
-
-  it("GET /users should allow VIEWER to read all users", async () => {
+  it("GET /users should allow VIEWER to list all users", async () => {
     mockSessionWithRole(UserRole.VIEWER);
 
     const response = await testApp.handle(new Request(`${BASE_URL}/users/`));
     expect(response.status).toBe(HttpStatus.OK);
   });
 
-
   it("PUT /users/:email should allow EDITOR to update a user", async () => {
     mockSessionWithRole(UserRole.EDITOR);
 
-    await testUserManager.create({ name: "Old", age: 20, email: "up@test.com", role: UserRole.VIEWER } as any);
+    // Seed data for the update operation
+    await testUserManager.create({ 
+      name: "Old Name", 
+      age: 20, 
+      email: "update@test.com", 
+      role: UserRole.VIEWER 
+    } as any);
 
     const response = await testApp.handle(
-      new Request(`${BASE_URL}/users/up@test.com`, {
+      new Request(`${BASE_URL}/users/update@test.com`, {
         method: "PUT",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ age: 35 }),
@@ -131,11 +151,11 @@ describe("Presentation Layer - User Routes (RBAC)", () => {
     expect(response.status).toBe(HttpStatus.OK);
   });
 
-  it("PUT /users/:email should return 403 FORBIDDEN if session is VIEWER", async () => {
+  it("PUT /users/:email should return 403 FORBIDDEN for VIEWER", async () => {
     mockSessionWithRole(UserRole.VIEWER);
 
     const response = await testApp.handle(
-      new Request(`${BASE_URL}/users/test@test.com`, {
+      new Request(`${BASE_URL}/users/update@test.com`, {
         method: "PUT",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ age: 35 }),
@@ -148,20 +168,35 @@ describe("Presentation Layer - User Routes (RBAC)", () => {
   it("DELETE /users/:email should allow ADMIN to delete a user", async () => {
     mockSessionWithRole(UserRole.ADMIN);
 
-    await testUserManager.create({ name: "Del", age: 20, email: "del@test.com", role: UserRole.VIEWER } as any);
+    // Seed data for the deletion operation
+    await testUserManager.create({ 
+      name: "Delete Me", 
+      age: 20, 
+      email: "delete@test.com", 
+      role: UserRole.VIEWER 
+    } as any);
 
     const response = await testApp.handle(
-      new Request(`${BASE_URL}/users/del@test.com`, { method: "DELETE" }),
+      new Request(`${BASE_URL}/users/delete@test.com`, { method: "DELETE" }),
     );
 
     expect(response.status).toBe(HttpStatus.OK);
+    const body = await response.json();
+    expect(body.success).toBe(true);
   });
 
-  it("DELETE /users/:email should return 403 FORBIDDEN if session is EDITOR", async () => {
+  it("DELETE /users/:email should return 403 FORBIDDEN for EDITOR", async () => {
     mockSessionWithRole(UserRole.EDITOR);
 
+    await testUserManager.create({ 
+      name: "Delete Me", 
+      age: 20, 
+      email: "delete@test.com", 
+      role: UserRole.VIEWER 
+    } as any);
+
     const response = await testApp.handle(
-      new Request(`${BASE_URL}/users/del@test.com`, { method: "DELETE" }),
+      new Request(`${BASE_URL}/users/delete@test.com`, { method: "DELETE" }),
     );
 
     expect(response.status).toBe(HttpStatus.FORBIDDEN);

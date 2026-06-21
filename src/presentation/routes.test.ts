@@ -10,6 +10,7 @@ describe("Presentation Layer - Global API Routes", () => {
   beforeEach(async () => {
     const mockContainer = createContainer();
 
+    // Registering basic dependencies to satisfy the DI container for the app setup
     mockContainer.register({
       userManager: asValue({}),
     });
@@ -21,5 +22,10 @@ describe("Presentation Layer - Global API Routes", () => {
     const response = await testApp.handle(new Request(`${BASE_URL}/`));
     expect(response.status).toBe(200);
     expect(await response.text()).toBe("A API Elysia + Drizzle está online!");
+  });
+
+  it("GET /favicon.ico should return 204 status", async () => {
+    const response = await testApp.handle(new Request(`${BASE_URL}/favicon.ico`));
+    expect(response.status).toBe(204);
   });
 });
