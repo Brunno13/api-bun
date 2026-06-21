@@ -44,19 +44,50 @@ Dependencies: You MUST Mock the Awilix DI container perfectly using createContai
 
 Setup Example:
 
+import { describe, it, expect, beforeEach, spyOn, mock } from "bun:test";
 import { createContainer, asValue } from "awilix";
-import { createApp } from "./routes"; // import the file you are testing
+import { auth } from "../../infrastructure/auth/auth"; // Adjust path as needed
+import { createApp } from "./routes"; // Import the actual app creator
+// Import the specific route module if testing it directly
+// import { userRoutes } from "./user.routes"; 
 
-const di = createContainer();
-di.register({ userManager: asValue({ create: mock(), findById: mock() } as any) });
-const app = await createApp(di as any);
+describe("Routes Test", () => {
+  let testApp: any;
+
+  beforeEach(async () => {
+    const di = createContainer();
+
+    // CRITICAL: Register all necessary managers/services with mock functions
+    // Use 'as any' to avoid TS errors
+    di.register({ 
+      userManager: asValue({ 
+        create: mock().mockResolvedValue({ id: '1' }), 
+        findById: mock().mockResolvedValue(null) 
+      } as any) 
+    });
+
+    // If testing createApp directly:
+    testApp = await createApp(di as any);
+
+    // OR, if testing a specific route module that returns an Elysia instance:
+    // testApp = new Elysia().use(userRoutes(di as any));
+  });
+
+  it("should handle request", async () => {
+    // Mock session for protected routes
+    spyOn(auth.api, "getSession").mockResolvedValue({ session: { role: 'ADMIN' } } as any);
+
+    const res = await testApp.handle(new Request('http://localhost/path'));
+    expect(res.status).toBe(200);
+  });
+});
 
 
-Requests: const res = await app.handle(new Request('http://localhost/path'));
+Requests: const res = await testApp.handle(new Request('http://localhost/path'));
 
 Response Body: Use await res.json(); or await res.text(); to read the response.
 
-Better Auth (RBAC): If the route is protected, mock the session:
+Better Auth (RBAC): If the route is protected, ALWAYS mock the session using spyOn:
 spyOn(auth.api, "getSession").mockResolvedValue({ session: { role: 'ADMIN' } } as any);
 </layer_strategies>
 
