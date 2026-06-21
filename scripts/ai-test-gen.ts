@@ -46,23 +46,18 @@ async function runAIBot() {
     for (const file of allFiles) {
       // Filtro Estrutural: Ignora interfaces, types, mensagens de erro, configs e injeção de dependência
       if (
-        file.includes('/domain/') || 
-        file.includes('/domain/') || 
-        file.includes('/messages/') || 
-        file.includes('/messages/') || 
-        file.includes('/errors/') || 
-        file.includes('/errors/') || 
-        file.includes('/utils/') || 
-        file.includes('/auth/') || 
+        file.includes('/domain/') ||
+        file.includes('/messages/') ||
+        file.includes('/errors/') ||
+        file.includes('/utils/') ||
+        file.includes('/auth/') ||
         file.includes('/db/') ||
         file.includes('/middlewares/') ||
-        file.includes('types.ts') || 
-        file.includes('errors.ts') || 
-        file.includes('drizzle.config') || 
-        file.includes('drizzle.config') || 
-        file.includes('container.ts') || 
-        file.includes('container.ts') || 
-        file.includes('config.ts') || 
+        file.includes('types.ts') ||
+        file.includes('errors.ts') ||
+        file.includes('drizzle.config') ||
+        file.includes('container.ts') ||
+        file.includes('config.ts') ||
         file.endsWith('index.ts')
       ) {
         console.log(`⏩ Ignorando arquivo estrutural (não necessita testes de IA): ${file}`);
@@ -113,16 +108,27 @@ async function runAIBot() {
       const data = await response.json();
       const aiMessage = data.choices[0].message.content;
 
-      // Extrai apenas o código dentro do bloco markdown que a IA gerou
+      // Extrai apenas o código dentro do bloco markdown
       const match = aiMessage.match(/\`\`\`(?:typescript|ts)\n([\s\S]*?)\`\`\`/);
       
+      let testCode = "";
+
       if (match && match[1]) {
-        const testCode = match[1];
+        testCode = match[1];
+      } else {
+         // Fallback: se a IA não colocar os marcadores, tenta usar a resposta toda
+         // Isto evita o erro se o modelo for desobediente
+         console.warn(`⚠️ A IA não usou os marcadores de código para ${file}. Tentando usar a resposta bruta.`);
+         testCode = aiMessage;
+      }
+
+      // Evita gravar arquivos vazios
+      if (testCode.trim().length > 0) {
         await Bun.write(testFileName, testCode);
         console.log(`✅ Teste ${testExists ? 'atualizado' : 'gerado'} e guardado em: ${testFileName}`);
         novosTestes++;
       } else {
-        console.warn(`⚠️ A IA não retornou o formato de código esperado para ${file}.`);
+          console.warn(`❌ Falha ao extrair código utilizável para ${file}`);
       }
     }
 
@@ -137,24 +143,29 @@ async function runAIBot() {
          await $`git config --global user.name "Woodpecker AI Bot"`;
          await $`git config --global user.email "ai-bot@brunnoserver.duckdns.org"`;
          await $`git remote set-url origin http://${REPO_OWNER}:${GITEA_TOKEN}@192.168.31.215:3099/${REPO_OWNER}/${REPO_NAME}.git`;
+         await $`git add .`;
          
-         await $`git add *.test.ts`;
-         // O [skip ci] impede que o push do bot acione a pipeline do Woodpecker num loop infinito
-         await $`git commit -m "test: sincronizados via LLM Local [skip ci]"`;
-         await $`git push origin HEAD:main`; 
+         // Verifica se há algo para commitar antes de tentar
+         const hasChanges = await $`git status --porcelain`.quiet().text();
+         if (hasChanges.trim().length > 0) {
+            // O [skip ci] impede que o push do bot acione a pipeline do Woodpecker num loop infinito
+            await $`git commit -m "test: sincronizados via LLM Local [skip ci]"`;
+            await $`git push origin HEAD:main`; 
+            console.log("🎉 Commit do Bot guardado no repositório!");
+         } else {
+            console.log("ℹ️ Os testes foram gerados com o mesmo código existente, não há alterações para commitar.");
+         }
          
-         console.log("🎉 Commit do Bot guardado no repositório!");
       } else {
          console.warn("💀 ALERTA: A IA gerou um teste inválido. A reverter os testes gerados para proteger a branch main.");
-         await $`git restore --staged *.test.ts`.quiet().catch(() => {});
-         await $`git checkout -- *.test.ts`.quiet().catch(() => {});
-         await $`git clean -fd *.test.ts`.quiet().catch(() => {}); 
+         await $`git restore --staged .`.quiet().catch(() => {});
+         await $`git checkout -- .`.quiet().catch(() => {});
+         await $`git clean -fd`.quiet().catch(() => {}); 
       }
     }
 
   } catch (error) {
      console.error("❌ Ocorreu um erro na execução do Bot:", error);
-     // Não bloqueia a pipeline em caso de falha do Bot
      process.exit(0); 
   }
 }
