@@ -54,7 +54,7 @@ export const MESSAGES = {
     [ErrorCode.USER_NOT_FOUND]: { message: "Usuário não encontrado.", status: HttpStatus.NOT_FOUND },
     [ErrorCode.DELETE_FAILED]: { message: "Erro ao deletar o usuário. Verifique os dados e tente novamente.", status: HttpStatus.BAD_REQUEST },
     [ErrorCode.INVALID_DATA]: { message: "Os dados fornecidos são inválidos.", status: HttpStatus.UNPROCESSABLE_ENTITY },
-    [ErrorCode.UPLOAD_FAILED]: { message: "Falha ao processar o upload do arquivo. Tente novamente mais tarde.", status: HttpStatus.INTERNAL_SERVER_ERROR }, // 🔥 NOVO
+    [ErrorCode.UPLOAD_FAILED]: { message: "Falha ao processar o upload do arquivo. Tente novamente mais tarde.", status: HttpStatus.INTERNAL_SERVER_ERROR },
   },
 
   SYSTEM: {
