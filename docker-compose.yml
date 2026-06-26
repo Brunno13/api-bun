@@ -7,7 +7,7 @@ services:
     container_name: ${CONTAINER_NAME:-api-bun-app}
     restart: unless-stopped
     ports:
-      # A porta 3000 interna do container é mapeada para a porta externa definida no Portainer
+      # A porta 3000 interna do container é mapeada para a porta externa definida no Portainer/CI
       - "${APP_PORT:-3000}:3000"
     volumes:
       # Bind Mount: A pasta física do seu servidor (Orange Pi) mapeada para dentro do container.
@@ -18,8 +18,15 @@ services:
       - DATABASE_URL=/app/data/sqlite.db
       - DO_NOT_TRACK=1
       
-      # Variáveis dinâmicas (injetadas via interface do Portainer)
+      # Variáveis dinâmicas (injetadas via Woodpecker CI / Portainer)
       - OTEL_SERVICE_NAME=${OTEL_SERVICE_NAME:-api-bun}
       - OTEL_EXPORTER_URL=${OTEL_EXPORTER_URL}
       - BETTER_AUTH_SECRET=${BETTER_AUTH_SECRET}
       - BETTER_AUTH_URL=${BETTER_AUTH_URL}
+      
+      # 🔥 Variáveis do Garage S3 (A ponte entre o CI e o Bun)
+      - GARAGE_S3_ENDPOINT=${GARAGE_S3_ENDPOINT}
+      - GARAGE_S3_ACCESS_KEY_ID=${GARAGE_S3_ACCESS_KEY_ID}
+      - GARAGE_S3_SECRET_ACCESS_KEY=${GARAGE_S3_SECRET_ACCESS_KEY}
+      - GARAGE_S3_BUCKET_NAME=${GARAGE_S3_BUCKET_NAME}
+      - GARAGE_S3_PUBLIC_URL=${GARAGE_S3_PUBLIC_URL}
