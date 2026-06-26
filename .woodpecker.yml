@@ -61,6 +61,16 @@ steps:
         from_secret: staging_better_auth_secret
       OTEL_EXPORTER_URL:
         from_secret: staging_otel_exporter_url
+      GARAGE_S3_ENDPOINT:
+        from_secret: staging_garage_s3_endpoint
+      GARAGE_S3_ACCESS_KEY_ID:
+        from_secret: staging_garage_s3_access_key_id
+      GARAGE_S3_SECRET_ACCESS_KEY:
+        from_secret: staging_garage_s3_secret_access_key
+      GARAGE_S3_BUCKET_NAME:
+        from_secret: staging_garage_s3_bucket_name
+      GARAGE_S3_PUBLIC_URL:
+        from_secret: staging_garage_s3_public_url
     commands:
       - echo "Subindo o ambiente de Homologação via Docker Compose..."
       - docker compose -p api-bun-staging up -d
@@ -81,48 +91,32 @@ steps:
       - |
         set -e
         set -x
-        
         git config remote.origin.fetch "+refs/heads/*:refs/remotes/origin/*"
         git fetch --all --unshallow || git fetch --all
         git fetch --tags
-        
         PREV_TAG=$(git describe --tags --abbrev=0 HEAD^ 2>/dev/null || echo "")
-        
         if [ -z "$PREV_TAG" ]; then
           CHANGELOG=$(git log --pretty=format:"- %h %s")
         else
           CHANGELOG=$(git log --pretty=format:"- %h %s" $PREV_TAG..HEAD)
         fi
-        
-        RELEASE_BODY="🚀 Deploy automático realizado com sucesso pelo Woodpecker CI. 
-        
-        ---
-        
-        $CHANGELOG"
-        
+        RELEASE_BODY="🚀 Deploy automático realizado com sucesso pelo Woodpecker CI. \n\n---\n\n$CHANGELOG"
         echo "$RELEASE_BODY" > .release_body.txt
-        
         JSON_PAYLOAD=$(jq -n --arg tag "${CI_COMMIT_TAG}" --arg name "Versão ${CI_COMMIT_TAG}" --arg body "$RELEASE_BODY" '{tag_name: $tag, name: $name, body: $body}')
-        
         echo "=== ENVIANDO RELEASE PARA O GITEA ==="
         RESPONSE=$(curl -s -X POST "http://192.168.31.215:3099/api/v1/repos/${CI_REPO_OWNER}/${CI_REPO_NAME}/releases" -H "accept: application/json" -H "Authorization: token $GITEA_TOKEN" -H "Content-Type: application/json" -d "$JSON_PAYLOAD")
-        
         echo "Resposta da API do Gitea: $RESPONSE"
         RELEASE_ID=$(echo "$RESPONSE" | jq -r '.id')
-        
         if [ "$RELEASE_ID" == "null" ] || [ -z "$RELEASE_ID" ]; then
           echo "❌ ERRO: O Gitea não retornou um ID válido. Se a Tag já existir, apague-a no painel e tente novamente."
           exit 1
         fi
-        
         echo "=== VERIFICANDO PASTA DE BINÁRIOS ==="
         ls -la ./bin/
-        
         echo "=== INICIANDO UPLOAD DOS ANEXOS ==="
         curl -f -s -X POST "http://192.168.31.215:3099/api/v1/repos/${CI_REPO_OWNER}/${CI_REPO_NAME}/releases/$RELEASE_ID/assets?name=api-bun-linux" -H "Authorization: token $GITEA_TOKEN" -F "attachment=@./bin/api-bun-linux"
         curl -f -s -X POST "http://192.168.31.215:3099/api/v1/repos/${CI_REPO_OWNER}/${CI_REPO_NAME}/releases/$RELEASE_ID/assets?name=api-bun-windows.exe" -H "Authorization: token $GITEA_TOKEN" -F "attachment=@./bin/api-bun-windows.exe"
         curl -f -s -X POST "http://192.168.31.215:3099/api/v1/repos/${CI_REPO_OWNER}/${CI_REPO_NAME}/releases/$RELEASE_ID/assets?name=api-bun-macos" -H "Authorization: token $GITEA_TOKEN" -F "attachment=@./bin/api-bun-macos"
-        
         echo "✅ DEPLOY FINALIZADO COM SUCESSO NO GITEA!"
     when:
       - event: tag
@@ -154,30 +148,23 @@ steps:
         set -e
         echo "=== CRIANDO RELEASE NO GITHUB ==="
         GITHUB_API_URL="https://api.github.com/repos/$GITHUB_USER/api-bun/releases"
-        
         if [ -f .release_body.txt ]; then
           RELEASE_BODY=$(cat .release_body.txt)
         else
           RELEASE_BODY="🚀 Lançamento automatizado sincronizado a partir do servidor Gitea interno."
         fi
-        
         JSON_PAYLOAD=$(jq -n --arg tag "${CI_COMMIT_TAG}" --arg name "Versão ${CI_COMMIT_TAG}" --arg body "$RELEASE_BODY" '{tag_name: $tag, name: $name, body: $body}')
-        
         RESPONSE=$(curl -s -X POST $GITHUB_API_URL -H "Accept: application/vnd.github+json" -H "Authorization: Bearer $GITHUB_TOKEN" -d "$JSON_PAYLOAD")
         RELEASE_ID=$(echo "$RESPONSE" | jq -r '.id')
-        
         if [ "$RELEASE_ID" == "null" ] || [ -z "$RELEASE_ID" ]; then
           echo "❌ ERRO: O GitHub não retornou um ID válido. Resposta: $RESPONSE"
           exit 1
         fi
-        
         echo "=== INICIANDO UPLOAD DOS ANEXOS NO GITHUB ==="
         GH_UPLOAD_URL="https://uploads.github.com/repos/$GITHUB_USER/api-bun/releases/$RELEASE_ID/assets"
-        
         curl -f -s -X POST "$GH_UPLOAD_URL?name=api-bun-linux" -H "Authorization: Bearer $GITHUB_TOKEN" -H "Content-Type: application/octet-stream" --data-binary @"./bin/api-bun-linux"
         curl -f -s -X POST "$GH_UPLOAD_URL?name=api-bun-windows.exe" -H "Authorization: Bearer $GITHUB_TOKEN" -H "Content-Type: application/octet-stream" --data-binary @"./bin/api-bun-windows.exe"
         curl -f -s -X POST "$GH_UPLOAD_URL?name=api-bun-macos" -H "Authorization: Bearer $GITHUB_TOKEN" -H "Content-Type: application/octet-stream" --data-binary @"./bin/api-bun-macos"
-        
         echo "✅ RELEASE NO GITHUB CRIADA COM SUCESSO!"
     when:
       - event: tag
@@ -198,6 +185,16 @@ steps:
         from_secret: prod_better_auth_secret
       OTEL_EXPORTER_URL:
         from_secret: prod_otel_exporter_url
+      GARAGE_S3_ENDPOINT:
+        from_secret: prod_garage_s3_endpoint
+      GARAGE_S3_ACCESS_KEY_ID:
+        from_secret: prod_garage_s3_access_key_id
+      GARAGE_S3_SECRET_ACCESS_KEY:
+        from_secret: prod_garage_s3_secret_access_key
+      GARAGE_S3_BUCKET_NAME:
+        from_secret: prod_garage_s3_bucket_name
+      GARAGE_S3_PUBLIC_URL:
+        from_secret: prod_garage_s3_public_url
     commands:
       - echo "Subindo o ambiente de Produção Oficial via Docker Compose..."
       - docker compose -p api-bun-producao up -d
