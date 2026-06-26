@@ -20,6 +20,7 @@ export enum FrameworkErrorCode {
   PARSE = "PARSE",
   UNKNOWN = "UNKNOWN",
   BAD_REQUEST = "BAD_REQUEST",
+  INVALID_FILE_TYPE = "INVALID_FILE_TYPE",
 }
 
 export enum ErrorCode {
@@ -30,6 +31,8 @@ export enum ErrorCode {
   DELETE_FAILED = "DELETE_FAILED",
   INVALID_DATA = "INVALID_DATA",
   UPLOAD_FAILED = "UPLOAD_FAILED",
+  ROUTE_NOT_FOUND = "ROUTE_NOT_FOUND",
+  UNKNOWN_APP_ERROR = "UNKNOWN_APP_ERROR",
 }
 
 export enum UserRole {
@@ -55,6 +58,7 @@ export const MESSAGES = {
     [ErrorCode.DELETE_FAILED]: { message: "Erro ao deletar o usuário. Verifique os dados e tente novamente.", status: HttpStatus.BAD_REQUEST },
     [ErrorCode.INVALID_DATA]: { message: "Os dados fornecidos são inválidos.", status: HttpStatus.UNPROCESSABLE_ENTITY },
     [ErrorCode.UPLOAD_FAILED]: { message: "Falha ao processar o upload do arquivo. Tente novamente mais tarde.", status: HttpStatus.INTERNAL_SERVER_ERROR },
+    [ErrorCode.ROUTE_NOT_FOUND]: { message: "A rota solicitada não existe.", status: HttpStatus.NOT_FOUND },
   },
 
   SYSTEM: {

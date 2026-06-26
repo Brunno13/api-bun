@@ -9,6 +9,7 @@ import { AwilixContainer } from "awilix";
 import { AppError } from "../core/errors/appError"; 
 import { MESSAGES, ErrorCode, HttpStatus, AppEnv, FrameworkErrorCode } from "../core/messages/messages";
 import { userRoutes } from "./routes/user.routes";
+import { uploadRoutes } from "./routes/upload.routes";
 import { logger } from "../core/utils/logger";
 
 const exporterUrl =
@@ -71,7 +72,7 @@ export const createApp = async (di: AwilixContainer) => {
         return {
           success: false,
           code: FrameworkErrorCode.NOT_FOUND,
-          message: "A rota solicitada não existe."
+          message: MESSAGES.ERROR[ErrorCode.ROUTE_NOT_FOUND].message
         };
       }
 
@@ -110,5 +111,6 @@ export const createApp = async (di: AwilixContainer) => {
       };
     })
 
-    .use(userRoutes(di));
+    .use(userRoutes(di))
+    .use(uploadRoutes(di));
 };

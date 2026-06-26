@@ -17,10 +17,6 @@ describe("Presentation Layer - User Routes (RBAC)", () => {
   let testDb: Database;
   let testDbInstance: BunSQLiteDatabase;
 
-  /**
-   * Helper to mock the session returned by auth.api.getSession
-   * This simulates the .derive() logic in the Elysia route.
-   */
   const mockSessionWithRole = (role: UserRole) => {
     spyOn(auth.api, "getSession").mockResolvedValue({
       session: {
@@ -74,6 +70,7 @@ describe("Presentation Layer - User Routes (RBAC)", () => {
     const testContainer = createContainer();
     testContainer.register({
       userManager: asValue(testUserManager),
+      storageService: asValue({ upload: async () => "http://mock-url.com" }),
     });
 
     testApp = await createApp(testContainer);

@@ -1,6 +1,8 @@
 import { S3Client, PutObjectCommand } from "@aws-sdk/client-s3";
 import { z } from "zod";
 import type { StorageService } from "../../core/domain/storageService";
+import { MESSAGES, ErrorCode } from "../../core/messages/messages"; // 🔥 Import centralizado
+import { AppError } from "../../core/errors/appError";
 
 const envSchema = z.object({
   GARAGE_S3_ENDPOINT: z.string().url(),
@@ -9,6 +11,8 @@ const envSchema = z.object({
   GARAGE_S3_BUCKET_NAME: z.string().min(1),
   GARAGE_S3_PUBLIC_URL: z.string().url(),
 });
+
+const S3_REGION = "us-east-1"; 
 
 export class GarageStorageService implements StorageService {
   private s3Client: S3Client;
@@ -28,7 +32,7 @@ export class GarageStorageService implements StorageService {
     this.publicUrl = env.GARAGE_S3_PUBLIC_URL.replace(/\/+$/, "");
 
     this.s3Client = new S3Client({
-      region: "us-east-1",
+      region: S3_REGION,
       endpoint: env.GARAGE_S3_ENDPOINT,
       credentials: {
         accessKeyId: env.GARAGE_S3_ACCESS_KEY_ID,
@@ -39,21 +43,25 @@ export class GarageStorageService implements StorageService {
   }
 
   async upload(file: File): Promise<string> {
-    const extension = file.name.split(".").pop() || "jpg";
-    const uniqueFileName = `${crypto.randomUUID()}.${extension}`;
+    try {
+      const extension = file.name.split(".").pop() || "jpg";
+      const uniqueFileName = `${crypto.randomUUID()}.${extension}`;
 
-    // limitado a 5MB na rota, o impacto de memória é nulo.
-    const arrayBuffer = await file.arrayBuffer();
-    const buffer = new Uint8Array(arrayBuffer);
+      const arrayBuffer = await file.arrayBuffer();
+      const buffer = new Uint8Array(arrayBuffer);
 
-    const command = new PutObjectCommand({
-      Bucket: this.bucketName,
-      Key: uniqueFileName,
-      Body: buffer,
-      ContentType: file.type,
-    });
+      const command = new PutObjectCommand({
+        Bucket: this.bucketName,
+        Key: uniqueFileName,
+        Body: buffer,
+        ContentType: file.type,
+      });
 
-    await this.s3Client.send(command);
-    return `${this.publicUrl}/${this.bucketName}/${uniqueFileName}`;
+      await this.s3Client.send(command);
+
+      return `${this.publicUrl}/${this.bucketName}/${uniqueFileName}`;
+    } catch (error) {
+      throw new AppError(ErrorCode.UPLOAD_FAILED);
+    }
   }
 }
