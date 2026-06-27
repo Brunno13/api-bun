@@ -54,5 +54,25 @@ export const uploadRoutes = (di: AwilixContainer) => {
           summary: MESSAGES.DOCS.UPLOAD.AVATAR,
         },
       }
+    )
+    
+    .get(
+      "/avatar/:filename",
+      async ({ params: { filename }, set }) => {
+        const fileData = await storageService.getFile(filename);
+        
+        set.headers = {
+          "Content-Type": fileData.contentType,
+          "Cache-Control": "public, max-age=31536000",
+        };
+        
+        return fileData.buffer;
+      },
+      {
+        detail: {
+          tags: [MESSAGES.DOCS.TAGS.UPLOAD],
+          summary: "Exibe uma imagem de avatar",
+        },
+      }
     );
 };

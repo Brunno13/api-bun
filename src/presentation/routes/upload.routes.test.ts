@@ -46,6 +46,10 @@ describe("Presentation Layer - Upload Routes", () => {
 
     mockStorageService = {
       upload: mock().mockResolvedValue("http://localhost:3902/avatares/fake-uuid.jpg"),
+      getFile: mock().mockResolvedValue({
+        buffer: Buffer.from("fake-image-data"),
+        contentType: "image/jpeg"
+      }),
     };
 
     const testContainer = createContainer();
@@ -153,5 +157,15 @@ describe("Presentation Layer - Upload Routes", () => {
     expect(body.success).toBe(false);
     expect(body.code).toBe(ErrorCode.INTERNAL_SERVER_ERROR);
     expect(mockStorageService.upload).toHaveBeenCalledTimes(1);
+  });
+
+  it("GET /api/avatar/:filename deve retornar a imagem buscada do storage", async () => {
+    const response = await testApp.handle(
+      new Request(`${BASE_URL}/api/avatar/test.jpg`, { method: "GET" })
+    );
+
+    expect(response.status).toBe(HttpStatus.OK);
+    expect(response.headers.get("Content-Type")).toBe("image/jpeg");
+    expect(mockStorageService.getFile).toHaveBeenCalledWith("test.jpg");
   });
 });

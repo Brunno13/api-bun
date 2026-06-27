@@ -1,7 +1,7 @@
-import { S3Client, PutObjectCommand } from "@aws-sdk/client-s3";
+import { S3Client, PutObjectCommand, GetObjectCommand } from "@aws-sdk/client-s3"; // 🔥 Importe o GetObjectCommand
 import { z } from "zod";
 import type { StorageService } from "../../core/domain/storageService";
-import { MESSAGES, ErrorCode } from "../../core/messages/messages"; // 🔥 Import centralizado
+import { MESSAGES, ErrorCode } from "../../core/messages/messages";
 import { AppError } from "../../core/errors/appError";
 
 const envSchema = z.object({
@@ -59,9 +59,33 @@ export class GarageStorageService implements StorageService {
 
       await this.s3Client.send(command);
 
-      return `${this.publicUrl}/${this.bucketName}/${uniqueFileName}`;
+      return `${this.publicUrl}/${uniqueFileName}`;
     } catch (error) {
       throw new AppError(ErrorCode.UPLOAD_FAILED);
+    }
+  }
+
+  async getFile(fileName: string) {
+    try {
+      const command = new GetObjectCommand({
+        Bucket: this.bucketName,
+        Key: fileName,
+      });
+
+      const response = await this.s3Client.send(command);
+
+      if (!response.Body) {
+        throw new AppError(ErrorCode.ROUTE_NOT_FOUND);
+      }
+
+      const byteArray = await response.Body.transformToByteArray();
+
+      return {
+        buffer: Buffer.from(byteArray),
+        contentType: response.ContentType || "image/jpeg",
+      };
+    } catch (error) {
+      throw new AppError(ErrorCode.ROUTE_NOT_FOUND);
     }
   }
 }
