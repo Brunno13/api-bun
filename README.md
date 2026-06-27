@@ -127,4 +127,4 @@ A imagem é construída sobre o runtime **Bun** (oven/bun:alpine). O ecossistema
 * **E-mail:** `admin@admin.com`  
 * **Senha:** `admin1234`
 
----
+--- 
