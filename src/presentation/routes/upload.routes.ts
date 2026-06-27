@@ -6,7 +6,6 @@ import { AppError } from "../../core/errors/appError";
 import { MESSAGES, ErrorCode, UserRole } from "../../core/messages/messages";
 import { requireRoles } from "../middlewares/role.validator";
 
-// 🔥 Definimos os formatos permitidos aqui para garantir consistência
 const ALLOWED_IMAGE_TYPES = ["image/jpeg", "image/png", "image/webp"] as const;
 
 export const uploadRoutes = (di: AwilixContainer) => {
@@ -24,16 +23,18 @@ export const uploadRoutes = (di: AwilixContainer) => {
 
       return { user: session.user };
     })
-    
     .post(
       "/avatar",
-      async ({ body: { avatar } }) => {
+      async ({ body: { avatarBase64, fileName, mimeType } }) => {
         
-        if (!ALLOWED_IMAGE_TYPES.includes(avatar.type as any)) {
+        if (!ALLOWED_IMAGE_TYPES.includes(mimeType as any)) {
           throw new AppError(ErrorCode.INVALID_DATA);
         }
 
-        const publicUrl = await storageService.upload(avatar);
+        const buffer = Buffer.from(avatarBase64, "base64");
+        const file = new File([buffer], fileName, { type: mimeType });
+
+        const publicUrl = await storageService.upload(file);
         
         return { 
           success: true,
@@ -44,9 +45,9 @@ export const uploadRoutes = (di: AwilixContainer) => {
       {
         beforeHandle: requireRoles(UserRole.ADMIN, UserRole.EDITOR, UserRole.VIEWER),
         body: t.Object({
-          avatar: t.File({
-            maxSize: "5m", 
-          }),
+          avatarBase64: t.String(),
+          fileName: t.String(),
+          mimeType: t.String(),
         }),
         detail: {
           tags: [MESSAGES.DOCS.TAGS.UPLOAD],

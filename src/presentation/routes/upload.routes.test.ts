@@ -62,14 +62,18 @@ describe("Presentation Layer - Upload Routes", () => {
   });
 
   it("POST /api/avatar deve fazer o upload com sucesso e retornar a URL pública", async () => {
-    const formData = new FormData();
-    const fakeFile = new File(["fake-image-content"], "avatar.jpg", { type: "image/jpeg" });
-    formData.append("avatar", fakeFile);
+    // 🔥 Agora enviamos um JSON puro no formato esperado
+    const payload = {
+      avatarBase64: "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8z8BQDwAEhQGAhKmMIQAAAABJRU5ErkJggg==", 
+      fileName: "avatar.jpg",
+      mimeType: "image/jpeg"
+    };
 
     const response = await testApp.handle(
       new Request(`${BASE_URL}/api/avatar`, {
         method: "POST",
-        body: formData,
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(payload),
       })
     );
 
@@ -85,14 +89,17 @@ describe("Presentation Layer - Upload Routes", () => {
   it("POST /api/avatar deve retornar 401 UNAUTHORIZED se não houver sessão activa", async () => {
     mockNoSession();
 
-    const formData = new FormData();
-    const fakeFile = new File(["conteudo"], "teste.png", { type: "image/png" });
-    formData.append("avatar", fakeFile);
+    const payload = {
+      avatarBase64: "base64-string",
+      fileName: "teste.png",
+      mimeType: "image/png"
+    };
 
     const response = await testApp.handle(
       new Request(`${BASE_URL}/api/avatar`, {
         method: "POST",
-        body: formData,
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(payload),
       })
     );
 
@@ -100,15 +107,19 @@ describe("Presentation Layer - Upload Routes", () => {
     expect(mockStorageService.upload).toHaveBeenCalledTimes(0);
   });
 
-  it("POST /api/avatar deve retornar 400 UNPROCESSABLE_ENTITY se o arquivo for inválido (ex: PDF)", async () => {
-    const formData = new FormData();
-    const invalidFile = new File(["pdf-falso"], "documento.pdf", { type: "application/pdf" });
-    formData.append("avatar", invalidFile);
+  it("POST /api/avatar deve retornar 422 UNPROCESSABLE_ENTITY se o arquivo for inválido (ex: PDF)", async () => {
+    // 🔥 Simulando um envio de PDF
+    const payload = {
+      avatarBase64: "base64-string",
+      fileName: "documento.pdf",
+      mimeType: "application/pdf"
+    };
 
     const response = await testApp.handle(
       new Request(`${BASE_URL}/api/avatar`, {
         method: "POST",
-        body: formData,
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(payload),
       })
     );
 
@@ -123,14 +134,17 @@ describe("Presentation Layer - Upload Routes", () => {
   it("POST /api/avatar deve propagar erro 500 se o StorageService falhar", async () => {
     mockStorageService.upload = mock().mockRejectedValue(new Error("Conexão recusada"));
 
-    const formData = new FormData();
-    const fakeFile = new File(["imagem"], "erro.jpg", { type: "image/jpeg" });
-    formData.append("avatar", fakeFile);
+    const payload = {
+      avatarBase64: "base64-string",
+      fileName: "erro.jpg",
+      mimeType: "image/jpeg"
+    };
 
     const response = await testApp.handle(
       new Request(`${BASE_URL}/api/avatar`, {
         method: "POST",
-        body: formData,
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(payload),
       })
     );
 
