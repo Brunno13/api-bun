@@ -12,6 +12,25 @@ export const uploadRoutes = (di: AwilixContainer) => {
   const storageService = di.resolve<StorageService>("storageService");
 
   return new Elysia({ prefix: "/api" })
+    .get(
+      "/avatar/:filename",
+      async ({ params: { filename }, set }) => {
+        const fileData = await storageService.getFile(filename);
+        
+        set.headers = {
+          "Content-Type": fileData.contentType,
+          "Cache-Control": "public, max-age=31536000",
+        };
+        
+        return fileData.buffer;
+      },
+      {
+        detail: {
+          tags: [MESSAGES.DOCS.TAGS.UPLOAD],
+          summary: "Exibe uma imagem de avatar",
+        },
+      }
+    )
     .derive(async ({ request }) => {
       const session = await auth.api.getSession({
         headers: request.headers,
@@ -52,26 +71,6 @@ export const uploadRoutes = (di: AwilixContainer) => {
         detail: {
           tags: [MESSAGES.DOCS.TAGS.UPLOAD],
           summary: MESSAGES.DOCS.UPLOAD.AVATAR,
-        },
-      }
-    )
-    
-    .get(
-      "/avatar/:filename",
-      async ({ params: { filename }, set }) => {
-        const fileData = await storageService.getFile(filename);
-        
-        set.headers = {
-          "Content-Type": fileData.contentType,
-          "Cache-Control": "public, max-age=31536000",
-        };
-        
-        return fileData.buffer;
-      },
-      {
-        detail: {
-          tags: [MESSAGES.DOCS.TAGS.UPLOAD],
-          summary: "Exibe uma imagem de avatar",
         },
       }
     );
