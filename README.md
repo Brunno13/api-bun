@@ -125,6 +125,6 @@ A imagem é construída sobre o runtime **Bun** (oven/bun:alpine). O ecossistema
 **O servidor estará disponível e escutando na porta configurada (padrão: http://localhost:3000)**
 
 * **E-mail:** `admin@admin.com`  
-* **Senha:** `admin1234`
+* **Senha:** `admin1234` 
 
 --- 
