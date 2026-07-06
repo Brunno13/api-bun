@@ -2,7 +2,8 @@ when:
   - event: push
     branch: main
   - event: tag
-
+labels:
+  platform: linux/arm64
 clone:
   git:
     image: woodpeckerci/plugin-git
