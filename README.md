@@ -1,118 +1,106 @@
-# API Bun - Clean Architecture Edition
+# API Bun - Clean Architecture
 
-Este projeto é uma API de alta performance desenvolvida com o runtime **Bun** e o framework **Elysia**, estruturada sob os rigorosos princípios da **Clean Architecture (Arquitetura Limpa)** e utilizando **Injeção de Dependências**.
-
-A arquitetura foi desenhada para garantir que a lógica de negócio seja independente de ferramentas externas, facilitando manutenções, testes e substituições tecnológicas sem impactar o núcleo do sistema.
+A high-performance API built with the **Bun** runtime and **Elysia**. It follows **Clean Architecture** principles and uses **Dependency Injection**. The design ensures business logic is independent of external tools, facilitating maintenance and testing.
 
 ---
 
-## ✨ Principais Funcionalidades
+## ✨ Key Features
 
-* **RBAC (Role-Based Access Control):** Controle de acesso a rotas restrito por papéis configuráveis (ADMIN, EDITOR e VIEWER).  
-* **Tratamento Global de Erros e Dicionário Unificado:** Interceptação centralizada de falhas mapeadas através de um dicionário global, eliminando *magic strings* e números soltos em toda a aplicação.  
-* **Logs Estruturados (JSON):** Implementação de observabilidade avançada, exportando eventos e erros em formato JSON para fácil rastreio por ferramentas de monitoramento.  
-* **Documentação Dinâmica:** Integração nativa com OpenAPI/Swagger.  
-* **Seed Automático:** Criação automatizada e segura do usuário administrador padrão durante a inicialização.  
-* **Alta Performance em I/O:** Operações reativas no banco de dados, reduzindo latência.
-
----
-
-## **🏗 Arquitetura do Projeto**
-
-### **1\. Camada de Core (src/core)**
-
-O "coração" da aplicação. Independente de banco de dados ou frameworks.
-
-* **Domain:** Define o que é um "Usuário" e contratos de repositório.  
-* **Use Cases:** Lógica de negócio pura que coordena ações.  
-* **Errors & Messages:** Central unificada de respostas e exceções (messages.ts e AppError). Padroniza códigos internos, respostas de sucesso e mensagens de falha, garantindo que a API "fale" um idioma único e imutável.
-
-### **2\. Camada de Infraestrutura (src/infrastructure)**
-
-Implementação de detalhes técnicos.
-
-* **Repositories:** Acesso a dados otimizado (Drizzle ORM).  
-* **Auth:** Integração com Better Auth e scripts de *seed* inicial.
-
-### **3\. Injeção de Dependências (Awilix)**
-
-Gerencia o ciclo de vida dos objetos, mapeando interfaces para implementações, facilitando testes e desacoplamento.
-
-### **4\. Camada de Apresentação (src/presentation)**
-
-Porta de entrada HTTP. Traduz requisições para os Casos de Uso.
-
-* **Routes & Middlewares:** Validação com Zod e controle de acesso via RBAC. O interceptador global de erros desta camada traduz automaticamente as exceções do domínio em respostas HTTP seguras e padronizadas.
+* **RBAC (Role-Based Access Control):** Controlled access by roles (ADMIN, EDITOR, VIEWER).
+* **Global Error Handling:** Centralized error management to eliminate magic strings.
+* **Structured Logs (JSON):** High-performance observability for monitoring tools.
+* **Dynamic Documentation:** Native OpenAPI/Swagger integration.
+* **Automatic Seeding:** Automated creation of the default admin user on startup.
+* **High I/O Performance:** Reactive database operations.
 
 ---
 
-## **📈 Observabilidade e Monitoramento de Logs**
+## 🏗️ Architecture
 
-Para garantir a confiabilidade do sistema em produção, o uso de console.log livre foi substituído pelo **Pino**, um logger de altíssima performance.
+### **1. Core Layer (`src/core`)**
+The business logic center, independent of databases or frameworks.
+* **Domain:** Defines entities and repository interfaces.
+* **Use Cases:** Pure business logic coordinating system actions.
+* **Errors & Messages:** Centralized responses and exceptions (via `messages.ts` and `AppError`).
 
-* **Propósito:** O Pino transforma todos os avisos e erros críticos da aplicação em **JSON estruturado**.  
-* **Vantagens:** Isso permite que o contexto completo do erro (método HTTP, rota acionada, *stack trace* e código de falha) seja perfeitamente lido e indexado por ferramentas de infraestrutura como o **Dozzle** (que permite consultas SQL sobre os logs) ou o **Grafana Loki**. Assim, torna-se possível configurar alertas automatizados (ex: Discord/Slack) sempre que um erro fatal ocorrer na API.
+### **2. Infrastructure Layer (`src/infrastructure`)**
+Technical implementations.
+* **Repositories:** Data access using **Drizzle ORM**.
+* **Auth:** Integration with **Better Auth** and seeding scripts.
+
+### **3. Dependency Injection (Awilix)**
+Manages object lifecycles, mapping interfaces to implementations for decoupling.
+
+### **4. Presentation Layer (`src/presentation`)**
+HTTP entry point. Translates requests into Use Cases.
+* **Routes & Middlewares:** Uses **Zod** for validation and middleware for RBAC. Includes a global error interceptor for standardized HTTP responses.
 
 ---
 
-## **🛠 Tecnologias Utilizadas**
+## 📈 Observability and Logging
+
+The project uses **Pino** for high-performance structured logging in JSON format. This allows tools like **Dozzle** or **Grafana Loki** to index logs for automated monitoring and alerting.
+
+---
+
+## 🛠️ Tech Stack
 
 * **Runtime:** Bun  
 * **Web Framework:** ElysiaJS  
-* **Injeção de Dependências:** Awilix  
+* **Dependency Injection:** Awilix  
 * **ORM:** Drizzle ORM  
-* **Validação:** Zod  
-* **Autenticação:** Better Auth  
-* **Logger/Observabilidade:** Pino
+* **Validation:** Zod  
+* **Authentication:** Better Auth  
+* **Logger:** Pino
 
 ---
 
-## **📂 Estrutura de Pastas**
+## 📂 Folder Structure
 
-| Caminho | Função |
+| Path | Function |
 | :---- | :---- |
-| src/core | Negócio, interfaces, central de erros e dicionário global. |
-| src/infrastructure | DB, Auth e Sementes. |
-| src/container.ts | Resolução de DI. |
-| src/presentation | Rotas, Middlewares e OpenAPI. |
+| `src/core` | Business logic, interfaces, errors, and global messages. |
+| `src/infrastructure` | DB, Auth, and Seeding. |
+| `src/container.ts` | Dependency Injection setup. |
+| `src/presentation` | Routes, Middlewares, and OpenAPI. |
 
 ---
 
-## **🐳 Containerização e CI/CD (Docker & Woodpecker)**
+## 🐳 Containerization & CI/CD (Docker & Woodpecker)
 
-Este projeto possui uma esteira de deploy 100% automatizada através do **Woodpecker CI** e **Gitea**, dividida em dois ambientes isolados.
+Automated deployment via **Woodpecker CI** and **Giteat** across two environments:
 
-### **Ambientes**
+### **Environments**
+* **Staging:** Automatically updated on every push to the `main` branch.
+* **Production:** Updated only when a new **Version Tag** (e.g., `v1.0.0`) is created.
 
-* **Homologação (Staging):** Atualizado automaticamente a cada push na branch main. Ideal para testes contínuos de integração.  
-* **Produção:** Atualizado exclusivamente mediante a criação de uma **Tag de Versão** (ex: v1.0.0). O pipeline gera automaticamente as *Release Notes* no repositório.
-
-### **Ciclo de Vida do Container**
-
-A imagem é construída sobre o runtime **Bun** (oven/bun:alpine). O ecossistema é gerenciado via Docker Compose, utilizando volumes mapeados (ex: /opt/api-bun/data) para persistência do banco de dados SQLite. As credenciais e portas de cada ambiente são blindadas e injetadas via *Secrets* do CI/CD.
+### **Container Lifecycle**
+Built using `oven/bun:alpine`. Managed with Docker Compose, using volumes for SQLite persistence. Credentials and ports are injected via CI/CD Secrets.
 
 ---
 
-## **🚀 Como Executar Localmente**
+## 🚀 Local Setup
 
-1. **Instale as dependências:**
+1. **Install dependencies:**
    ```bash
    bun install
    ```
 
-2. **Sincronize o banco de dados:**
+2. **Sync the database:**
    ```bash
    bunx drizzle-kit push
    ```
 
-3. **Execute:**
+3. **Run the application:**
    ```bash
    bun run dev
    ```
 
-## **✅ Testes Automatizados**
+---
 
-1. **Executar Testes Unitários Localmente:**
+## ✅ Automated Tests
+
+1. **Run Unit Tests:**
 
    ```bash
    bun test
@@ -120,11 +108,11 @@ A imagem é construída sobre o runtime **Bun** (oven/bun:alpine). O ecossistema
 
 ---
 
-## **👑 Acesso Inicial (Admin Padrão)**
+## 👑 Default Admin Access
 
-**O servidor estará disponível e escutando na porta configurada (padrão: http://localhost:3000)**
+**The server is available at: `http://localhost:3000`**
 
-* **E-mail:** `admin@admin.com`  
-* **Senha:** `admin1234` 
+* **Email:** `admin@admin.com`  
+* **Password:** `admin1234`
 
---- 
+---
