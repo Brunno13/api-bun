@@ -1,9 +1,12 @@
 when:
   - event: push
     branch: main
+
   - event: tag
+
 labels:
   platform: linux/arm64
+
 clone:
   git:
     image: woodpeckerci/plugin-git
@@ -12,13 +15,60 @@ clone:
 
 steps:
   # =========================================================
-  # FASE 1: Test and Build
+  # NOTIFICAÇÕES DE INÍCIO
   # =========================================================
+
+  - name: notify-start-staging
+    image: curlimages/curl
+    commands:
+      - |
+        TIMESTAMP="$(TZ=UTC3 date '+%d/%m/%Y %H:%M')"
+
+        curl -fsS \
+          --connect-timeout 5 \
+          --max-time 10 \
+          --output /dev/null \
+          -X POST \
+          "http://192.168.31.215:8095/message?token=A6vmGBx46fXa5Iv" \
+          -F "title=WoodpeckerCI" \
+          -F "message=WoodpeckerCI · Api-bun · Staging pipeline started · ${TIMESTAMP}" \
+          -F "priority=5" \
+          || true
+
+    when:
+      - event: push
+        branch: main
+
+  - name: notify-start-production
+    image: curlimages/curl
+    commands:
+      - |
+        TIMESTAMP="$(TZ=UTC3 date '+%d/%m/%Y %H:%M')"
+
+        curl -fsS \
+          --connect-timeout 5 \
+          --max-time 10 \
+          --output /dev/null \
+          -X POST \
+          "http://192.168.31.215:8095/message?token=A6vmGBx46fXa5Iv" \
+          -F "title=WoodpeckerCI" \
+          -F "message=WoodpeckerCI · Api-bun · Production pipeline started · ${TIMESTAMP}" \
+          -F "priority=5" \
+          || true
+
+    when:
+      - event: tag
+
+  # =========================================================
+  # FASE 1: TEST AND BUILD
+  # =========================================================
+
   - name: testar-codigo
     image: oven/bun:alpine
     commands:
       - echo "Instalando dependências para os testes..."
       - bun install
+
       - echo "Executando a suíte de testes..."
       - bun test
 
@@ -27,177 +77,495 @@ steps:
     commands:
       - echo "Criando diretório para os binários..."
       - mkdir -p ./bin
-      
-      - echo "Compilando executáveis standalone (Linux, Windows, MacOS)..."
-      - bun build ./src/index.ts --compile --target=bun-linux-x64 --outfile=./bin/api-bun-linux
-      - bun build ./src/index.ts --compile --target=bun-windows-x64 --outfile=./bin/api-bun-windows.exe
-      - bun build ./src/index.ts --compile --target=bun-darwin-x64 --outfile=./bin/api-bun-macos
+
+      - echo "Compilando executáveis standalone para Linux, Windows e macOS..."
+
+      - bun build ./src/index.ts
+        --compile
+        --target=bun-linux-x64
+        --outfile=./bin/api-bun-linux
+
+      - bun build ./src/index.ts
+        --compile
+        --target=bun-windows-x64
+        --outfile=./bin/api-bun-windows.exe
+
+      - bun build ./src/index.ts
+        --compile
+        --target=bun-darwin-x64
+        --outfile=./bin/api-bun-macos
+
     when:
       - event: tag
 
   - name: build-imagem-docker
     image: docker:cli
+
     volumes:
       - /var/run/docker.sock:/var/run/docker.sock
+
     commands:
       - echo "Atualizando a imagem Docker api-bun:latest..."
       - docker build -t api-bun:latest .
 
   # =========================================================
-  # FASE 2: Staging (only when push in branch main)
+  # FASE 2: STAGING
+  # Executada somente em push para a branch main
   # =========================================================
+
   - name: deploy-staging
     image: docker:cli
+
     volumes:
       - /var/run/docker.sock:/var/run/docker.sock
+
     environment:
       CONTAINER_NAME: api-bun-staging
+
       APP_PORT:
         from_secret: staging_app_port
+
       HOST_DATA_PATH:
         from_secret: staging_host_data_path
+
       BETTER_AUTH_URL:
         from_secret: staging_better_auth_url
+
       BETTER_AUTH_SECRET:
         from_secret: staging_better_auth_secret
+
       OTEL_EXPORTER_URL:
         from_secret: staging_otel_exporter_url
+
       GARAGE_S3_ENDPOINT:
         from_secret: staging_garage_s3_endpoint
+
       GARAGE_S3_ACCESS_KEY_ID:
         from_secret: staging_garage_s3_access_key_id
+
       GARAGE_S3_SECRET_ACCESS_KEY:
         from_secret: staging_garage_s3_secret_access_key
+
       GARAGE_S3_BUCKET_NAME:
         from_secret: staging_garage_s3_bucket_name
+
       GARAGE_S3_PUBLIC_URL:
         from_secret: staging_garage_s3_public_url
+
     commands:
       - echo "Subindo o ambiente de Homologação via Docker Compose..."
       - docker compose -p api-bun-staging up -d
+
     when:
       - event: push
         branch: main
 
   # =========================================================
-  # FASE 3: PRODUCTION (tag release)
+  # FASE 3: PRODUCTION
+  # Executada somente durante a criação de tags
   # =========================================================
+
   - name: gerar-release-notes
     image: alpine
+
     environment:
       GITEA_TOKEN:
         from_secret: gitea_token
+
     commands:
       - apk add --no-cache curl git jq
+
       - |
         set -e
-        set -x
-        git config remote.origin.fetch "+refs/heads/*:refs/remotes/origin/*"
+
+        git config remote.origin.fetch \
+          "+refs/heads/*:refs/remotes/origin/*"
+
         git fetch --all --unshallow || git fetch --all
         git fetch --tags
-        PREV_TAG=$(git describe --tags --abbrev=0 HEAD^ 2>/dev/null || echo "")
+
+        PREV_TAG=$(
+          git describe \
+            --tags \
+            --abbrev=0 \
+            HEAD^ \
+            2>/dev/null \
+          || echo ""
+        )
+
         if [ -z "$PREV_TAG" ]; then
-          CHANGELOG=$(git log --pretty=format:"- %h %s")
+          CHANGELOG=$(
+            git log \
+              --pretty=format:"- %h %s"
+          )
         else
-          CHANGELOG=$(git log --pretty=format:"- %h %s" $PREV_TAG..HEAD)
+          CHANGELOG=$(
+            git log \
+              --pretty=format:"- %h %s" \
+              "${PREV_TAG}..HEAD"
+          )
         fi
-        RELEASE_BODY="🚀 Deploy automático realizado com sucesso pelo Woodpecker CI. \n\n---\n\n$CHANGELOG"
-        echo "$RELEASE_BODY" > .release_body.txt
-        JSON_PAYLOAD=$(jq -n --arg tag "${CI_COMMIT_TAG}" --arg name "Versão ${CI_COMMIT_TAG}" --arg body "$RELEASE_BODY" '{tag_name: $tag, name: $name, body: $body}')
+
+        RELEASE_BODY=$(
+          printf \
+            '🚀 Deploy automático realizado com sucesso pelo Woodpecker CI.\n\n---\n\n%s' \
+            "$CHANGELOG"
+        )
+
+        printf '%s\n' \
+          "$RELEASE_BODY" \
+          > .release_body.txt
+
+        JSON_PAYLOAD=$(
+          jq \
+            -n \
+            --arg tag "${CI_COMMIT_TAG}" \
+            --arg name "Versão ${CI_COMMIT_TAG}" \
+            --arg body "$RELEASE_BODY" \
+            '{
+              tag_name: $tag,
+              name: $name,
+              body: $body
+            }'
+        )
+
         echo "=== ENVIANDO RELEASE PARA O GITEA ==="
-        RESPONSE=$(curl -s -X POST "http://192.168.31.215:3099/api/v1/repos/${CI_REPO_OWNER}/${CI_REPO_NAME}/releases" -H "accept: application/json" -H "Authorization: token $GITEA_TOKEN" -H "Content-Type: application/json" -d "$JSON_PAYLOAD")
+
+        RESPONSE=$(
+          curl \
+            -s \
+            -X POST \
+            "http://192.168.31.215:3099/api/v1/repos/${CI_REPO_OWNER}/${CI_REPO_NAME}/releases" \
+            -H "Accept: application/json" \
+            -H "Authorization: token $GITEA_TOKEN" \
+            -H "Content-Type: application/json" \
+            -d "$JSON_PAYLOAD"
+        )
+
         echo "Resposta da API do Gitea: $RESPONSE"
-        RELEASE_ID=$(echo "$RESPONSE" | jq -r '.id')
-        if [ "$RELEASE_ID" == "null" ] || [ -z "$RELEASE_ID" ]; then
-          echo "❌ ERRO: O Gitea não retornou um ID válido. Se a Tag já existir, apague-a no painel e tente novamente."
+
+        RELEASE_ID=$(
+          echo "$RESPONSE" \
+          | jq -r '.id'
+        )
+
+        if [ "$RELEASE_ID" = "null" ] \
+          || [ -z "$RELEASE_ID" ]; then
+
+          echo "❌ ERRO: O Gitea não retornou um ID válido."
+
+          echo \
+            "Se a tag ou a release já existir, remova-a no painel e tente novamente."
+
           exit 1
         fi
+
         echo "=== VERIFICANDO PASTA DE BINÁRIOS ==="
-        ls -la ./bin/
+
+        ls -lah ./bin/
+
         echo "=== INICIANDO UPLOAD DOS ANEXOS ==="
-        curl -f -s -X POST "http://192.168.31.215:3099/api/v1/repos/${CI_REPO_OWNER}/${CI_REPO_NAME}/releases/$RELEASE_ID/assets?name=api-bun-linux" -H "Authorization: token $GITEA_TOKEN" -F "attachment=@./bin/api-bun-linux"
-        curl -f -s -X POST "http://192.168.31.215:3099/api/v1/repos/${CI_REPO_OWNER}/${CI_REPO_NAME}/releases/$RELEASE_ID/assets?name=api-bun-windows.exe" -H "Authorization: token $GITEA_TOKEN" -F "attachment=@./bin/api-bun-windows.exe"
-        curl -f -s -X POST "http://192.168.31.215:3099/api/v1/repos/${CI_REPO_OWNER}/${CI_REPO_NAME}/releases/$RELEASE_ID/assets?name=api-bun-macos" -H "Authorization: token $GITEA_TOKEN" -F "attachment=@./bin/api-bun-macos"
+
+        curl \
+          -fsS \
+          -X POST \
+          "http://192.168.31.215:3099/api/v1/repos/${CI_REPO_OWNER}/${CI_REPO_NAME}/releases/${RELEASE_ID}/assets?name=api-bun-linux" \
+          -H "Authorization: token $GITEA_TOKEN" \
+          -F "attachment=@./bin/api-bun-linux"
+
+        curl \
+          -fsS \
+          -X POST \
+          "http://192.168.31.215:3099/api/v1/repos/${CI_REPO_OWNER}/${CI_REPO_NAME}/releases/${RELEASE_ID}/assets?name=api-bun-windows.exe" \
+          -H "Authorization: token $GITEA_TOKEN" \
+          -F "attachment=@./bin/api-bun-windows.exe"
+
+        curl \
+          -fsS \
+          -X POST \
+          "http://192.168.31.215:3099/api/v1/repos/${CI_REPO_OWNER}/${CI_REPO_NAME}/releases/${RELEASE_ID}/assets?name=api-bun-macos" \
+          -H "Authorization: token $GITEA_TOKEN" \
+          -F "attachment=@./bin/api-bun-macos"
+
         echo "✅ DEPLOY FINALIZADO COM SUCESSO NO GITEA!"
+
     when:
       - event: tag
 
   - name: espelhar-github
     image: alpine/git
+
     environment:
       GITHUB_USER: Brunno13
+
       GITHUB_TOKEN:
         from_secret: github_token
+
     commands:
       - echo "=== SINCRONIZANDO COM O GITHUB ==="
-      - git config --global --add safe.directory '*'
-      - git remote add github https://$GITHUB_USER:$GITHUB_TOKEN@github.com/$GITHUB_USER/api-bun.git
+
+      - git config
+        --global
+        --add
+        safe.directory
+        "*"
+
+      - git remote add
+        github
+        "https://$GITHUB_USER:$GITHUB_TOKEN@github.com/$GITHUB_USER/api-bun.git"
+
       - git push github main --force
-      - git push github ${CI_COMMIT_TAG} --force
+
+      - git push
+        github
+        "${CI_COMMIT_TAG}"
+        --force
+
     when:
       - event: tag
 
   - name: criar-release-github
     image: alpine
+
     environment:
       GITHUB_USER: Brunno13
+
       GITHUB_TOKEN:
         from_secret: github_token
+
     commands:
       - apk add --no-cache curl jq
+
       - |
         set -e
+
         echo "=== CRIANDO RELEASE NO GITHUB ==="
+
         GITHUB_API_URL="https://api.github.com/repos/$GITHUB_USER/api-bun/releases"
+
         if [ -f .release_body.txt ]; then
-          RELEASE_BODY=$(cat .release_body.txt)
+          RELEASE_BODY=$(
+            cat .release_body.txt
+          )
         else
           RELEASE_BODY="🚀 Lançamento automatizado sincronizado a partir do servidor Gitea interno."
         fi
-        JSON_PAYLOAD=$(jq -n --arg tag "${CI_COMMIT_TAG}" --arg name "Versão ${CI_COMMIT_TAG}" --arg body "$RELEASE_BODY" '{tag_name: $tag, name: $name, body: $body}')
-        RESPONSE=$(curl -s -X POST $GITHUB_API_URL -H "Accept: application/vnd.github+json" -H "Authorization: Bearer $GITHUB_TOKEN" -d "$JSON_PAYLOAD")
-        RELEASE_ID=$(echo "$RESPONSE" | jq -r '.id')
-        if [ "$RELEASE_ID" == "null" ] || [ -z "$RELEASE_ID" ]; then
-          echo "❌ ERRO: O GitHub não retornou um ID válido. Resposta: $RESPONSE"
+
+        JSON_PAYLOAD=$(
+          jq \
+            -n \
+            --arg tag "${CI_COMMIT_TAG}" \
+            --arg name "Versão ${CI_COMMIT_TAG}" \
+            --arg body "$RELEASE_BODY" \
+            '{
+              tag_name: $tag,
+              name: $name,
+              body: $body
+            }'
+        )
+
+        RESPONSE=$(
+          curl \
+            -s \
+            -X POST \
+            "$GITHUB_API_URL" \
+            -H "Accept: application/vnd.github+json" \
+            -H "Authorization: Bearer $GITHUB_TOKEN" \
+            -H "Content-Type: application/json" \
+            -d "$JSON_PAYLOAD"
+        )
+
+        RELEASE_ID=$(
+          echo "$RESPONSE" \
+          | jq -r '.id'
+        )
+
+        if [ "$RELEASE_ID" = "null" ] \
+          || [ -z "$RELEASE_ID" ]; then
+
+          echo \
+            "❌ ERRO: O GitHub não retornou um ID válido."
+
+          echo \
+            "Resposta recebida: $RESPONSE"
+
           exit 1
         fi
-        echo "=== INICIANDO UPLOAD DOS ANEXOS NO GITHUB ==="
+
+        echo \
+          "=== INICIANDO UPLOAD DOS ANEXOS NO GITHUB ==="
+
         GH_UPLOAD_URL="https://uploads.github.com/repos/$GITHUB_USER/api-bun/releases/$RELEASE_ID/assets"
-        curl -f -s -X POST "$GH_UPLOAD_URL?name=api-bun-linux" -H "Authorization: Bearer $GITHUB_TOKEN" -H "Content-Type: application/octet-stream" --data-binary @"./bin/api-bun-linux"
-        curl -f -s -X POST "$GH_UPLOAD_URL?name=api-bun-windows.exe" -H "Authorization: Bearer $GITHUB_TOKEN" -H "Content-Type: application/octet-stream" --data-binary @"./bin/api-bun-windows.exe"
-        curl -f -s -X POST "$GH_UPLOAD_URL?name=api-bun-macos" -H "Authorization: Bearer $GITHUB_TOKEN" -H "Content-Type: application/octet-stream" --data-binary @"./bin/api-bun-macos"
-        echo "✅ RELEASE NO GITHUB CRIADA COM SUCESSO!"
+
+        curl \
+          -fsS \
+          -X POST \
+          "$GH_UPLOAD_URL?name=api-bun-linux" \
+          -H "Authorization: Bearer $GITHUB_TOKEN" \
+          -H "Content-Type: application/octet-stream" \
+          --data-binary \
+          "@./bin/api-bun-linux"
+
+        curl \
+          -fsS \
+          -X POST \
+          "$GH_UPLOAD_URL?name=api-bun-windows.exe" \
+          -H "Authorization: Bearer $GITHUB_TOKEN" \
+          -H "Content-Type: application/octet-stream" \
+          --data-binary \
+          "@./bin/api-bun-windows.exe"
+
+        curl \
+          -fsS \
+          -X POST \
+          "$GH_UPLOAD_URL?name=api-bun-macos" \
+          -H "Authorization: Bearer $GITHUB_TOKEN" \
+          -H "Content-Type: application/octet-stream" \
+          --data-binary \
+          "@./bin/api-bun-macos"
+
+        echo \
+          "✅ RELEASE NO GITHUB CRIADA COM SUCESSO!"
+
     when:
       - event: tag
 
   - name: deploy-producao
     image: docker:cli
+
     volumes:
       - /var/run/docker.sock:/var/run/docker.sock
+
     environment:
       CONTAINER_NAME: api-bun-prod
+
       APP_PORT:
         from_secret: prod_app_port
+
       HOST_DATA_PATH:
         from_secret: prod_host_data_path
+
       BETTER_AUTH_URL:
         from_secret: prod_better_auth_url
+
       BETTER_AUTH_SECRET:
         from_secret: prod_better_auth_secret
+
       OTEL_EXPORTER_URL:
         from_secret: prod_otel_exporter_url
+
       GARAGE_S3_ENDPOINT:
         from_secret: prod_garage_s3_endpoint
+
       GARAGE_S3_ACCESS_KEY_ID:
         from_secret: prod_garage_s3_access_key_id
+
       GARAGE_S3_SECRET_ACCESS_KEY:
         from_secret: prod_garage_s3_secret_access_key
+
       GARAGE_S3_BUCKET_NAME:
         from_secret: prod_garage_s3_bucket_name
+
       GARAGE_S3_PUBLIC_URL:
         from_secret: prod_garage_s3_public_url
+
     commands:
       - echo "Subindo o ambiente de Produção Oficial via Docker Compose..."
-      - docker compose -p api-bun-producao up -d
+
+      - docker compose
+        -p api-bun-producao
+        up
+        -d
+
     when:
       - event: tag
+
+  # =========================================================
+  # NOTIFICAÇÕES DE SUCESSO E ERRO
+  # =========================================================
+
+  - name: notify-success-staging
+    image: curlimages/curl
+    commands:
+      - |
+        TIMESTAMP="$(TZ=UTC3 date '+%d/%m/%Y %H:%M')"
+
+        curl -fsS \
+          --connect-timeout 5 \
+          --max-time 10 \
+          --output /dev/null \
+          -X POST \
+          "http://192.168.31.215:8095/message?token=A6vmGBx46fXa5Iv" \
+          -F "title=WoodpeckerCI" \
+          -F "message=WoodpeckerCI · Api-bun · Staging pipeline finished successfully · ${TIMESTAMP}" \
+          -F "priority=5" \
+          || true
+
+    when:
+      - event: push
+        branch: main
+        status: [success]
+
+  - name: notify-error-staging
+    image: curlimages/curl
+    commands:
+      - |
+        TIMESTAMP="$(TZ=UTC3 date '+%d/%m/%Y %H:%M')"
+
+        curl -fsS \
+          --connect-timeout 5 \
+          --max-time 10 \
+          --output /dev/null \
+          -X POST \
+          "http://192.168.31.215:8095/message?token=A6vmGBx46fXa5Iv" \
+          -F "title=WoodpeckerCI" \
+          -F "message=WoodpeckerCI · Api-bun · Staging pipeline failed · ${TIMESTAMP}" \
+          -F "priority=8" \
+          || true
+
+    when:
+      - event: push
+        branch: main
+        status: [failure]
+
+  - name: notify-success-production
+    image: curlimages/curl
+    commands:
+      - |
+        TIMESTAMP="$(TZ=UTC3 date '+%d/%m/%Y %H:%M')"
+
+        curl -fsS \
+          --connect-timeout 5 \
+          --max-time 10 \
+          --output /dev/null \
+          -X POST \
+          "http://192.168.31.215:8095/message?token=A6vmGBx46fXa5Iv" \
+          -F "title=WoodpeckerCI" \
+          -F "message=WoodpeckerCI · Api-bun · Production pipeline finished successfully · ${TIMESTAMP}" \
+          -F "priority=5" \
+          || true
+
+    when:
+      - event: tag
+        status: [success]
+
+  - name: notify-error-production
+    image: curlimages/curl
+    commands:
+      - |
+        TIMESTAMP="$(TZ=UTC3 date '+%d/%m/%Y %H:%M')"
+
+        curl -fsS \
+          --connect-timeout 5 \
+          --max-time 10 \
+          --output /dev/null \
+          -X POST \
+          "http://192.168.31.215:8095/message?token=A6vmGBx46fXa5Iv" \
+          -F "title=WoodpeckerCI" \
+          -F "message=WoodpeckerCI · Api-bun · Production pipeline failed · ${TIMESTAMP}" \
+          -F "priority=8" \
+          || true
+
+    when:
+      - event: tag
+        status: [failure]
