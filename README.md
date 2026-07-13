@@ -113,6 +113,6 @@ Built using `oven/bun:alpine`. Managed with Docker Compose, using volumes for SQ
 **The server is available at: `http://localhost:3000`**
 
 * **Email:** `admin@admin.com`  
-* **Password:** `admin1234` 
+* **Password:** `admin1234`
 
 ---

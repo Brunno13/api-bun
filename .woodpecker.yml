@@ -201,4 +201,3 @@ steps:
       - docker compose -p api-bun-producao up -d
     when:
       - event: tag
-
