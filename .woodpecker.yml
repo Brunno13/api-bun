@@ -15,21 +15,29 @@ steps:
   # NOTIFICAÇÕES DE INÍCIO
   # =========================================================
   - name: notify-start-staging
-    image: bash
-    when:
-      event: push
-      branch: main
+    image: alpine
     commands:
-      - |
-        curl -s -X POST "http://192.168.31.215:8095/message?token=A6vmGBx46fXa5Iv" -F "title=WoodpeckerCI" -F "message=Api-bun: Staging pipeline started" -F "priority=5" || true
+      - apk add --no-cache curl
+      - >
+        curl -s -X POST "http://192.168.31.215:8095/message?token=A6vmGBx46fXa5Iv"
+        -F "title=WoodpeckerCI"
+        -F "message=Api-bun: Staging pipeline started"
+        -F "priority=5" || true
+    when:
+      - event: push
+        branch: main
 
   - name: notify-start-production
-    image: bash
-    when:
-      event: tag
+    image: alpine
     commands:
-      - |
-        curl -s -X POST "http://192.168.31.215:8095/message?token=A6vmGBx46fXa5Iv" -F "title=WoodpeckerCI" -F "message=Api-bun: Production pipeline started (Tag ${CI_COMMIT_TAG})" -F "priority=5" || true
+      - apk add --no-cache curl
+      - >
+        curl -s -X POST "http://192.168.31.215:8095/message?token=A6vmGBx46fXa5Iv"
+        -F "title=WoodpeckerCI"
+        -F "message=Api-bun: Production pipeline started (Tag ${CI_COMMIT_TAG})"
+        -F "priority=5" || true
+    when:
+      - event: tag
 
   # =========================================================
   # FASE 1: Test and Build
@@ -226,39 +234,55 @@ steps:
   # NOTIFICAÇÕES DE SUCESSO E ERRO
   # =========================================================
   - name: notify-success-staging
-    image: bash
-    when:
-      event: push
-      branch: main
-      status: [ success ]
+    image: alpine
     commands:
-      - |
-        curl -s -X POST "http://192.168.31.215:8095/message?token=A6vmGBx46fXa5Iv" -F "title=WoodpeckerCI" -F "message=Api-bun: Staging pipeline finished successfully" -F "priority=5" || true
+      - apk add --no-cache curl
+      - >
+        curl -s -X POST "http://192.168.31.215:8095/message?token=A6vmGBx46fXa5Iv"
+        -F "title=WoodpeckerCI"
+        -F "message=Api-bun: Staging pipeline finished successfully"
+        -F "priority=5" || true
+    when:
+      - event: push
+        branch: main
+        status: success
 
   - name: notify-error-staging
-    image: bash
-    when:
-      event: push
-      branch: main
-      status: [ failure ]
+    image: alpine
     commands:
-      - |
-        curl -s -X POST "http://192.168.31.215:8095/message?token=A6vmGBx46fXa5Iv" -F "title=WoodpeckerCI" -F "message=Api-bun: Staging pipeline failed!" -F "priority=8" || true
+      - apk add --no-cache curl
+      - >
+        curl -s -X POST "http://192.168.31.215:8095/message?token=A6vmGBx46fXa5Iv"
+        -F "title=WoodpeckerCI"
+        -F "message=Api-bun: Staging pipeline failed!"
+        -F "priority=8" || true
+    when:
+      - event: push
+        branch: main
+        status: failure
 
   - name: notify-success-production
-    image: bash
-    when:
-      event: tag
-      status: [ success ]
+    image: alpine
     commands:
-      - |
-        curl -s -X POST "http://192.168.31.215:8095/message?token=A6vmGBx46fXa5Iv" -F "title=WoodpeckerCI" -F "message=Api-bun: Production pipeline finished successfully (Tag ${CI_COMMIT_TAG})" -F "priority=5" || true
+      - apk add --no-cache curl
+      - >
+        curl -s -X POST "http://192.168.31.215:8095/message?token=A6vmGBx46fXa5Iv"
+        -F "title=WoodpeckerCI"
+        -F "message=Api-bun: Production pipeline finished successfully (Tag ${CI_COMMIT_TAG})"
+        -F "priority=5" || true
+    when:
+      - event: tag
+        status: success
 
   - name: notify-error-production
-    image: bash
-    when:
-      event: tag
-      status: [ failure ]
+    image: alpine
     commands:
-      - |
-        curl -s -X POST "http://192.168.31.215:8095/message?token=A6vmGBx46fXa5Iv" -F "title=WoodpeckerCI" -F "message=Api-bun: Production pipeline failed! (Tag ${CI_COMMIT_TAG})" -F "priority=8" || true
+      - apk add --no-cache curl
+      - >
+        curl -s -X POST "http://192.168.31.215:8095/message?token=A6vmGBx46fXa5Iv"
+        -F "title=WoodpeckerCI"
+        -F "message=Api-bun: Production pipeline failed! (Tag ${CI_COMMIT_TAG})"
+        -F "priority=8" || true
+    when:
+      - event: tag
+        status: failure
