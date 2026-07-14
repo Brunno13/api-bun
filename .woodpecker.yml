@@ -31,7 +31,7 @@ steps:
           -X POST \
           "http://192.168.31.215:8095/message?token=A6vmGBx46fXa5Iv" \
           -F "title=WoodpeckerCI" \
-          -F "message=WoodpeckerCI · Api-bun · Staging pipeline started · ${TIMESTAMP}" \
+          -F "message=WoodpeckerCI · Api-bun · Staging pipeline started · $${TIMESTAMP}" \
           -F "priority=5" \
           || true
 
@@ -52,7 +52,7 @@ steps:
           -X POST \
           "http://192.168.31.215:8095/message?token=A6vmGBx46fXa5Iv" \
           -F "title=WoodpeckerCI" \
-          -F "message=WoodpeckerCI · Api-bun · Production pipeline started · ${TIMESTAMP}" \
+          -F "message=WoodpeckerCI · Api-bun · Production pipeline started · $${TIMESTAMP}" \
           -F "priority=5" \
           || true
 
@@ -497,7 +497,7 @@ steps:
           -X POST \
           "http://192.168.31.215:8095/message?token=A6vmGBx46fXa5Iv" \
           -F "title=WoodpeckerCI" \
-          -F "message=WoodpeckerCI · Api-bun · Staging pipeline finished successfully · ${TIMESTAMP}" \
+          -F "message=WoodpeckerCI · Api-bun · Staging pipeline finished successfully · $${TIMESTAMP}" \
           -F "priority=5" \
           || true
 
@@ -519,7 +519,7 @@ steps:
           -X POST \
           "http://192.168.31.215:8095/message?token=A6vmGBx46fXa5Iv" \
           -F "title=WoodpeckerCI" \
-          -F "message=WoodpeckerCI · Api-bun · Staging pipeline failed · ${TIMESTAMP}" \
+          -F "message=WoodpeckerCI · Api-bun · Staging pipeline failed · $${TIMESTAMP}" \
           -F "priority=8" \
           || true
 
@@ -541,7 +541,7 @@ steps:
           -X POST \
           "http://192.168.31.215:8095/message?token=A6vmGBx46fXa5Iv" \
           -F "title=WoodpeckerCI" \
-          -F "message=WoodpeckerCI · Api-bun · Production pipeline finished successfully · ${TIMESTAMP}" \
+          -F "message=WoodpeckerCI · Api-bun · Production pipeline finished successfully · $${TIMESTAMP}" \
           -F "priority=5" \
           || true
 
@@ -562,7 +562,7 @@ steps:
           -X POST \
           "http://192.168.31.215:8095/message?token=A6vmGBx46fXa5Iv" \
           -F "title=WoodpeckerCI" \
-          -F "message=WoodpeckerCI · Api-bun · Production pipeline failed · ${TIMESTAMP}" \
+          -F "message=WoodpeckerCI · Api-bun · Production pipeline failed · $${TIMESTAMP}" \
           -F "priority=8" \
           || true
 
