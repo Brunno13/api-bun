@@ -115,4 +115,4 @@ Built using `oven/bun:alpine`. Managed with Docker Compose, using volumes for SQ
 * **Email:** `admin@admin.com`  
 * **Password:** `admin1234`
 
----
+--- 
