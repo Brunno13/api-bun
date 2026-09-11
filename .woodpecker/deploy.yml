@@ -150,8 +150,21 @@ steps:
         from_secret: staging_garage_s3_public_url
 
     commands:
-      - echo "Subindo o ambiente de Homologação via Docker Compose..."
-      - docker compose -p api-bun-staging up -d
+      - |
+        set -eu
+
+        echo "Preparando permissões do diretório persistente de Homologação..."
+
+        test -n "$HOST_DATA_PATH"
+
+        docker run --rm \
+          -v "$HOST_DATA_PATH:/data" \
+          alpine:3.23 \
+          chown -R 1000:1000 /data
+
+        echo "Subindo o ambiente de Homologação via Docker Compose..."
+
+        docker compose -p api-bun-staging up -d
 
     when:
       - event: push
