@@ -118,18 +118,23 @@ steps:
         echo "SECRETS=$SECRETS"
 
         echo
-        echo "===== HIGH / CRITICAL VULNERABILITIES ====="
+        echo "===== TODAS AS VULNERABILIDADES ====="
 
         jq -r '
           .Results[]?
           | .Target as $target
           | .Vulnerabilities[]?
-          | select(
-              .Severity == "HIGH"
-              or
-              .Severity == "CRITICAL"
-            )
           | "VULN target=\($target) id=\(.VulnerabilityID) package=\(.PkgName) severity=\(.Severity) installed=\(.InstalledVersion) fixed=\(.FixedVersion // "-")"
+        ' "$REPORT"
+
+        echo
+        echo "===== CONTAGEM POR SEVERIDADE ====="
+
+        jq -r '
+          [.Results[]?.Vulnerabilities[]?]
+          | group_by(.Severity)
+          | .[]
+          | "\(.[0].Severity)=\(length)"
         ' "$REPORT"
 
         echo
