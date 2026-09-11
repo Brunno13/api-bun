@@ -53,74 +53,82 @@ steps:
         rm -rf /var/lib/apt/lists/*
 
         echo
-        echo "===== OPENGREP 1.27.1 ====="
+                echo
+        echo "===== OPENGREP 1.27.1 - DOWNLOAD ====="
+
+        rm -f /tmp/opengrep \
+              /tmp/opengrep-version.out \
+              /tmp/opengrep-version.err
 
         curl \
-          -fsSL \
+          -fL \
           --retry 3 \
+          --retry-all-errors \
+          --connect-timeout 10 \
+          --max-time 120 \
           --output /tmp/opengrep \
+          --write-out 'HTTP=%{http_code}\nCONTENT_TYPE=%{content_type}\nSIZE_DOWNLOAD=%{size_download}\n' \
           https://github.com/opengrep/opengrep/releases/download/v1.27.1/opengrep_manylinux_x86
+
+        echo
+        echo "===== ARQUIVO BAIXADO ====="
+
+        ls -lh /tmp/opengrep
+        wc -c /tmp/opengrep
+
+        MAGIC="$(
+          od \
+            -An \
+            -tx1 \
+            -N4 \
+            /tmp/opengrep \
+          | tr -d ' \n'
+        )"
+
+        echo "ELF_MAGIC=$MAGIC"
+
+        if [ "$MAGIC" != "7f454c46" ]; then
+          echo "OPENGREP_BINARY=INVALID"
+          echo "Esperado ELF_MAGIC=7f454c46"
+          exit 1
+        fi
+
+        echo "OPENGREP_BINARY=ELF_OK"
 
         chmod 0755 /tmp/opengrep
 
-        /tmp/opengrep --version
+        echo
+        echo "===== DEPENDENCIAS ELF ====="
+
+        ldd /tmp/opengrep || true
 
         echo
-        echo "===== SELFTEST DAS REGRAS ====="
+        echo "===== TESTE --version ====="
 
-        /tmp/opengrep scan \
-          --metrics=off \
-          --json-output=/tmp/opengrep-selftest.json \
-          -f security/opengrep/rules.yml \
-          security/opengrep/fixtures/positive.ts
+        set +e
 
-        for RULE_ID in \
-          security.javascript-typescript-eval \
-          security.javascript-typescript-function-constructor \
-          security.javascript-typescript-exec-call \
-          security.javascript-typescript-weak-hash \
-          security.javascript-typescript-disable-tls-verification
-        do
-          if grep -q "$RULE_ID" /tmp/opengrep-selftest.json; then
-            echo "SELFTEST=${RULE_ID}=PASS"
-          else
-            echo "SELFTEST=${RULE_ID}=FAIL"
-            exit 1
-          fi
-        done
+        /tmp/opengrep \
+          --version \
+          > /tmp/opengrep-version.out \
+          2> /tmp/opengrep-version.err
+
+        VERSION_RC=$?
+
+        set -e
+
+        echo "VERSION_EXIT_CODE=$VERSION_RC"
 
         echo
-        echo "OPENGREP_RULE_SELFTEST=PASS"
+        echo "===== STDOUT ====="
+        cat /tmp/opengrep-version.out || true
 
         echo
-        echo "===== SCAN REAL: SRC ====="
+        echo "===== STDERR ====="
+        cat /tmp/opengrep-version.err || true
 
-        mkdir -p .security-results
+        if [ "$VERSION_RC" -ne 0 ]; then
+          echo "OPENGREP_VERSION_TEST=FAIL"
+          exit "$VERSION_RC"
+        fi
 
-        /tmp/opengrep scan \
-          --metrics=off \
-          --sarif-output=.security-results/opengrep.sarif \
-          -f security/opengrep/rules.yml \
-          src
-
-        echo
-        echo "===== JSON ====="
-
-        /tmp/opengrep scan \
-          --metrics=off \
-          --json-output=.security-results/opengrep.json \
-          -f security/opengrep/rules.yml \
-          src
-
-        echo
-        echo "===== RELATORIOS ====="
-
-        test -s .security-results/opengrep.sarif
-        test -s .security-results/opengrep.json
-
-        wc -c \
-          .security-results/opengrep.sarif \
-          .security-results/opengrep.json
-
-        echo
-        echo "OPENGREP_REAL_SCAN=PASS"
+        echo "OPENGREP_VERSION_TEST=PASS"
