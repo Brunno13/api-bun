@@ -1,0 +1,171 @@
+when:
+  - event: manual
+
+labels:
+  platform: linux/amd64
+  role: build-linux
+
+depends_on:
+  - security-opengrep
+
+steps:
+  - name: trivy-scan
+    image: ghcr.io/aquasecurity/trivy:0.74.0@sha256:ee940acbf1f58ebadb42d01434ce4609530bf1b52536afbd1eee66cd7123c5c9
+
+    commands:
+      - |
+        set -eu
+
+        echo "===== TRIVY SECURITY POC ====="
+
+        echo
+        echo "===== ARQUITETURA ====="
+
+        uname -m
+        test "$(uname -m)" = "x86_64"
+
+        echo
+        echo "===== VERSION ====="
+
+        trivy --version
+
+        echo
+        echo "===== WORKSPACE ====="
+
+        pwd
+
+        test -f package.json
+        test -f bun.lock
+        test -f Dockerfile
+        test -f docker-compose.yml
+
+        mkdir -p .security-results
+
+        echo
+        echo "===== TRIVY JSON ====="
+
+        trivy fs \
+          --disable-telemetry \
+          --skip-version-check \
+          --no-progress \
+          --include-dev-deps \
+          --scanners vuln,misconfig,secret \
+          --format json \
+          --output .security-results/trivy.json \
+          .
+
+        echo
+        echo "===== TRIVY SARIF ====="
+
+        trivy fs \
+          --disable-telemetry \
+          --skip-version-check \
+          --no-progress \
+          --include-dev-deps \
+          --scanners vuln,misconfig,secret \
+          --format sarif \
+          --output .security-results/trivy.sarif \
+          .
+
+        echo
+        echo "===== RELATORIOS ====="
+
+        test -s .security-results/trivy.json
+        test -s .security-results/trivy.sarif
+
+        wc -c \
+          .security-results/trivy.json \
+          .security-results/trivy.sarif
+
+        echo
+        echo "TRIVY_SCAN=PASS"
+
+  - name: trivy-summary
+    image: alpine:3.23
+
+    commands:
+      - |
+        set -eu
+
+        apk add --no-cache jq >/dev/null
+
+        REPORT=".security-results/trivy.json"
+
+        test -s "$REPORT"
+
+        echo "===== TRIVY RESUMO ====="
+
+        VULNS="$(
+          jq \
+            '[.Results[]?.Vulnerabilities[]?] | length' \
+            "$REPORT"
+        )"
+
+        MISCONFIGS="$(
+          jq \
+            '[.Results[]?.Misconfigurations[]?] | length' \
+            "$REPORT"
+        )"
+
+        SECRETS="$(
+          jq \
+            '[.Results[]?.Secrets[]?] | length' \
+            "$REPORT"
+        )"
+
+        echo "VULNERABILITIES=$VULNS"
+        echo "MISCONFIGURATIONS=$MISCONFIGS"
+        echo "SECRETS=$SECRETS"
+
+        echo
+        echo "===== TODAS AS VULNERABILIDADES ====="
+
+        jq -r '
+          .Results[]?
+          | .Target as $target
+          | .Vulnerabilities[]?
+          | "VULN target=\($target) id=\(.VulnerabilityID) package=\(.PkgName) severity=\(.Severity) installed=\(.InstalledVersion) fixed=\(.FixedVersion // "-")"
+        ' "$REPORT"
+
+        echo
+        echo "===== CONTAGEM POR SEVERIDADE ====="
+
+        jq -r '
+          [.Results[]?.Vulnerabilities[]?]
+          | group_by(.Severity)
+          | .[]
+          | "\(.[0].Severity)=\(length)"
+        ' "$REPORT"
+
+        echo
+        echo "===== TODAS AS MISCONFIGURATIONS ====="
+
+        jq -r '
+          .Results[]?
+          | .Target as $target
+          | .Misconfigurations[]?
+          | "MISCONFIG target=\($target) id=\(.ID) severity=\(.Severity) title=\(.Title)"
+        ' "$REPORT"
+
+        echo
+        echo "===== CONTAGEM MISCONFIG POR SEVERIDADE ====="
+
+        jq -r '
+          [.Results[]?.Misconfigurations[]?]
+          | group_by(.Severity)
+          | .[]
+          | "\(.[0].Severity)=\(length)"
+        ' "$REPORT"
+
+        echo
+        echo "===== SECRETS DETECTADOS ====="
+
+        jq -r '
+          .Results[]?
+          | .Target as $target
+          | .Secrets[]?
+          | "SECRET target=\($target) rule=\(.RuleID) severity=\(.Severity)"
+        ' "$REPORT"
+
+        echo
+        echo "TRIVY_SUMMARY=PASS"

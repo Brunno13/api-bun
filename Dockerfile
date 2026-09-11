@@ -14,6 +14,8 @@ COPY --from=builder /app/node_modules ./node_modules
 COPY src ./src
 COPY package.json drizzle.config.ts ./
 
+USER bun
+
 EXPOSE 3000
 
 CMD ["sh", "-c", "bunx drizzle-kit push && bun run src/index.ts"]
