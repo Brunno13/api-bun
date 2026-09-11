@@ -1,0 +1,23 @@
+when:
+  - event: manual
+
+skip_clone: true
+
+workspace:
+  base: /tmp
+  path: woodpecker-security-wake-x86
+
+labels:
+  platform: linux/arm64
+  hostname: orangepi5
+
+steps:
+  - name: wake-docker-x86
+    image: curlimages/curl:8.22.0
+    commands:
+      - 'echo "===== SECURITY WAKE VM104 ====="'
+      - 'echo "Solicitando Energy Manager..."'
+      - 'response="$(curl -fsS --connect-timeout 5 --max-time 180 -X POST --data "" https://energy-manager.brunnoserver.duckdns.org/cgi-bin/ci-wake-docker-x86)"'
+      - 'printf "%s\n" "$response"'
+      - 'printf "%s\n" "$response" | grep -Eq "^RESULT=(trigger_complete|already_in_progress)$"'
+      - 'echo "SECURITY_WAKE_X86=PASS"'

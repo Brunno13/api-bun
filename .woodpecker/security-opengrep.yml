@@ -1,0 +1,60 @@
+when:
+  - event: manual
+
+labels:
+  platform: linux/amd64
+  role: build-linux
+
+depends_on:
+  - security-wake-x86
+
+steps:
+  - name: opengrep-smoke
+    image: debian:12-slim
+    commands:
+      - |
+        set -eu
+
+        echo "===== OPENGREP SMOKE ====="
+        echo
+
+        echo "===== ARQUITETURA ====="
+        uname -a
+        uname -m
+
+        test "$(uname -m)" = "x86_64"
+
+        echo
+        echo "===== WORKSPACE ====="
+        pwd
+        test -d .git
+        test -f package.json
+        test -f bun.lock
+
+        echo
+        echo "===== INSTALANDO DEPENDENCIAS MINIMAS ====="
+
+        apt-get update
+        apt-get install \
+          -y \
+          --no-install-recommends \
+          ca-certificates \
+          curl
+
+        rm -rf /var/lib/apt/lists/*
+
+        echo
+        echo "===== OPENGREP 1.27.1 ====="
+
+        curl \
+          -fsSL \
+          --retry 3 \
+          --output /tmp/opengrep \
+          https://github.com/opengrep/opengrep/releases/download/v1.27.1/opengrep_manylinux_x86
+
+        chmod 0755 /tmp/opengrep
+
+        /tmp/opengrep --version
+
+        echo
+        echo "OPENGREP_SMOKE=PASS"
