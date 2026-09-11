@@ -29,11 +29,45 @@ rules:
       - typescript
     severity: WARNING
     message: >
-      Chamada exec()/execSync() detectada. Revise se argumentos externos podem
-      alcançar o shell sem validação ou escaping adequado.
+      Execução de comando via child_process detectada. Revise se argumentos
+      externos podem alcançar o shell sem validação ou escaping adequado.
     pattern-either:
-      - pattern: $OBJ.exec(...)
-      - pattern: $OBJ.execSync(...)
+      - pattern: require("child_process").exec(...)
+      - pattern: require("child_process").execSync(...)
+      - pattern: require("node:child_process").exec(...)
+      - pattern: require("node:child_process").execSync(...)
+
+      - patterns:
+          - pattern-inside: |
+              import * as $CP from "child_process";
+              ...
+          - pattern-either:
+              - pattern: $CP.exec(...)
+              - pattern: $CP.execSync(...)
+
+      - patterns:
+          - pattern-inside: |
+              import * as $CP from "node:child_process";
+              ...
+          - pattern-either:
+              - pattern: $CP.exec(...)
+              - pattern: $CP.execSync(...)
+
+      - patterns:
+          - pattern-inside: |
+              const $CP = require("child_process");
+              ...
+          - pattern-either:
+              - pattern: $CP.exec(...)
+              - pattern: $CP.execSync(...)
+
+      - patterns:
+          - pattern-inside: |
+              const $CP = require("node:child_process");
+              ...
+          - pattern-either:
+              - pattern: $CP.exec(...)
+              - pattern: $CP.execSync(...)
 
   - id: security.javascript-typescript-weak-hash
     languages:
