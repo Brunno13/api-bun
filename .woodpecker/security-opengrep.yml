@@ -9,16 +9,20 @@ depends_on:
   - security-wake-x86
 
 steps:
-  - name: opengrep-smoke
+  - name: opengrep-sast
     image: debian:12-slim
+
     commands:
       - |
         set -eu
 
-        echo "===== OPENGREP SMOKE ====="
-        echo
+        export DEBIAN_FRONTEND=noninteractive
 
+        echo "===== OPENGREP SAST POC ====="
+
+        echo
         echo "===== ARQUITETURA ====="
+
         uname -a
         uname -m
 
@@ -26,15 +30,20 @@ steps:
 
         echo
         echo "===== WORKSPACE ====="
+
         pwd
+
         test -d .git
         test -f package.json
         test -f bun.lock
+        test -f security/opengrep/rules.yml
+        test -f security/opengrep/fixtures/positive.ts
 
         echo
-        echo "===== INSTALANDO DEPENDENCIAS MINIMAS ====="
+        echo "===== DEPENDENCIAS ====="
 
         apt-get update
+
         apt-get install \
           -y \
           --no-install-recommends \
@@ -44,17 +53,136 @@ steps:
         rm -rf /var/lib/apt/lists/*
 
         echo
-        echo "===== OPENGREP 1.27.1 ====="
+        echo "===== OPENGREP 1.27.1 - DOWNLOAD ====="
+
+        rm -f \
+          /tmp/opengrep \
+          /tmp/opengrep-version.out \
+          /tmp/opengrep-version.err
 
         curl \
-          -fsSL \
+          -fL \
           --retry 3 \
+          --retry-all-errors \
+          --connect-timeout 10 \
+          --max-time 120 \
           --output /tmp/opengrep \
+          --write-out 'HTTP=%{http_code}\nCONTENT_TYPE=%{content_type}\nSIZE_DOWNLOAD=%{size_download}\n' \
           https://github.com/opengrep/opengrep/releases/download/v1.27.1/opengrep_manylinux_x86
+
+        echo
+        echo "===== VALIDANDO BINARIO ====="
+
+        ls -lh /tmp/opengrep
+        wc -c /tmp/opengrep
+
+        MAGIC="$(
+          od \
+            -An \
+            -tx1 \
+            -N4 \
+            /tmp/opengrep \
+          | tr -d ' \n'
+        )"
+
+        echo "ELF_MAGIC=$MAGIC"
+
+        if [ "$MAGIC" != "7f454c46" ]; then
+          echo "OPENGREP_BINARY=INVALID"
+          exit 1
+        fi
+
+        echo "OPENGREP_BINARY=ELF_OK"
 
         chmod 0755 /tmp/opengrep
 
+        echo
+        echo "===== VERSION ====="
+
         /tmp/opengrep --version
 
+        echo "OPENGREP_VERSION_TEST=PASS"
+
         echo
-        echo "OPENGREP_SMOKE=PASS"
+        echo "===== SELFTEST DAS REGRAS ====="
+
+        /tmp/opengrep scan \
+          --metrics=off \
+          --json-output=/tmp/opengrep-selftest.json \
+          -f security/opengrep/rules.yml \
+          security/opengrep/fixtures/positive.ts
+
+        grep -q \
+          'security.javascript-typescript-eval' \
+          /tmp/opengrep-selftest.json
+
+        echo "SELFTEST=eval=PASS"
+
+        grep -q \
+          'security.javascript-typescript-function-constructor' \
+          /tmp/opengrep-selftest.json
+
+        echo "SELFTEST=function-constructor=PASS"
+
+        grep -q \
+          'security.javascript-typescript-exec-call' \
+          /tmp/opengrep-selftest.json
+
+        echo "SELFTEST=exec-call=PASS"
+
+        grep -q \
+          'security.javascript-typescript-weak-hash' \
+          /tmp/opengrep-selftest.json
+
+        echo "SELFTEST=weak-hash=PASS"
+
+        grep -q \
+          'security.javascript-typescript-disable-tls-verification' \
+          /tmp/opengrep-selftest.json
+
+        echo "SELFTEST=disable-tls-verification=PASS"
+
+        echo
+        echo "OPENGREP_RULE_SELFTEST=PASS"
+
+        echo
+        echo "===== SCAN REAL: SRC ====="
+
+        mkdir -p .security-results
+
+        /tmp/opengrep scan \
+          --metrics=off \
+          --sarif-output=.security-results/opengrep.sarif \
+          -f security/opengrep/rules.yml \
+          src
+
+        echo
+        echo "===== SCAN JSON ====="
+
+        /tmp/opengrep scan \
+          --metrics=off \
+          --json-output=.security-results/opengrep.json \
+          -f security/opengrep/rules.yml \
+          src
+
+        echo
+        echo "===== RELATORIOS ====="
+
+        test -s .security-results/opengrep.sarif
+        test -s .security-results/opengrep.json
+
+        wc -c \
+          .security-results/opengrep.sarif \
+          .security-results/opengrep.json
+
+        echo
+        echo "===== RESUMO JSON ====="
+
+        grep -o '"check_id":"[^"]*"' \
+          .security-results/opengrep.json \
+          | sort \
+          | uniq -c \
+          || true
+
+        echo
+        echo "OPENGREP_REAL_SCAN=PASS"
