@@ -107,7 +107,6 @@ steps:
         echo "===== SELFTEST DAS REGRAS ====="
 
         /tmp/opengrep scan \
-          --metrics=off \
           --json-output=/tmp/opengrep-selftest.json \
           -f security/opengrep/rules.yml \
           security/opengrep/fixtures/positive.ts
@@ -151,7 +150,6 @@ steps:
         mkdir -p .security-results
 
         /tmp/opengrep scan \
-          --metrics=off \
           --sarif-output=.security-results/opengrep.sarif \
           -f security/opengrep/rules.yml \
           src
@@ -160,7 +158,6 @@ steps:
         echo "===== SCAN JSON ====="
 
         /tmp/opengrep scan \
-          --metrics=off \
           --json-output=.security-results/opengrep.json \
           -f security/opengrep/rules.yml \
           src
