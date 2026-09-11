@@ -138,18 +138,23 @@ steps:
         ' "$REPORT"
 
         echo
-        echo "===== HIGH / CRITICAL MISCONFIGURATIONS ====="
+        echo "===== TODAS AS MISCONFIGURATIONS ====="
 
         jq -r '
           .Results[]?
           | .Target as $target
           | .Misconfigurations[]?
-          | select(
-              .Severity == "HIGH"
-              or
-              .Severity == "CRITICAL"
-            )
           | "MISCONFIG target=\($target) id=\(.ID) severity=\(.Severity) title=\(.Title)"
+        ' "$REPORT"
+
+        echo
+        echo "===== CONTAGEM MISCONFIG POR SEVERIDADE ====="
+
+        jq -r '
+          [.Results[]?.Misconfigurations[]?]
+          | group_by(.Severity)
+          | .[]
+          | "\(.[0].Severity)=\(length)"
         ' "$REPORT"
 
         echo
