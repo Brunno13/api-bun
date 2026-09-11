@@ -9,16 +9,20 @@ depends_on:
   - security-wake-x86
 
 steps:
-  - name: opengrep-smoke
+  - name: opengrep-sast
     image: debian:12-slim
+
     commands:
       - |
         set -eu
 
-        echo "===== OPENGREP SMOKE ====="
-        echo
+        export DEBIAN_FRONTEND=noninteractive
 
+        echo "===== OPENGREP SAST POC ====="
+
+        echo
         echo "===== ARQUITETURA ====="
+
         uname -a
         uname -m
 
@@ -26,15 +30,20 @@ steps:
 
         echo
         echo "===== WORKSPACE ====="
+
         pwd
+
         test -d .git
         test -f package.json
         test -f bun.lock
+        test -f security/opengrep/rules.yml
+        test -f security/opengrep/fixtures/positive.ts
 
         echo
-        echo "===== INSTALANDO DEPENDENCIAS MINIMAS ====="
+        echo "===== DEPENDENCIAS ====="
 
         apt-get update
+
         apt-get install \
           -y \
           --no-install-recommends \
@@ -57,4 +66,61 @@ steps:
         /tmp/opengrep --version
 
         echo
-        echo "OPENGREP_SMOKE=PASS"
+        echo "===== SELFTEST DAS REGRAS ====="
+
+        /tmp/opengrep scan \
+          --metrics=off \
+          --json-output=/tmp/opengrep-selftest.json \
+          -f security/opengrep/rules.yml \
+          security/opengrep/fixtures/positive.ts
+
+        for RULE_ID in \
+          security.javascript-typescript-eval \
+          security.javascript-typescript-function-constructor \
+          security.javascript-typescript-exec-call \
+          security.javascript-typescript-weak-hash \
+          security.javascript-typescript-disable-tls-verification
+        do
+          if grep -q "$RULE_ID" /tmp/opengrep-selftest.json; then
+            echo "SELFTEST=${RULE_ID}=PASS"
+          else
+            echo "SELFTEST=${RULE_ID}=FAIL"
+            exit 1
+          fi
+        done
+
+        echo
+        echo "OPENGREP_RULE_SELFTEST=PASS"
+
+        echo
+        echo "===== SCAN REAL: SRC ====="
+
+        mkdir -p .security-results
+
+        /tmp/opengrep scan \
+          --metrics=off \
+          --sarif-output=.security-results/opengrep.sarif \
+          -f security/opengrep/rules.yml \
+          src
+
+        echo
+        echo "===== JSON ====="
+
+        /tmp/opengrep scan \
+          --metrics=off \
+          --json-output=.security-results/opengrep.json \
+          -f security/opengrep/rules.yml \
+          src
+
+        echo
+        echo "===== RELATORIOS ====="
+
+        test -s .security-results/opengrep.sarif
+        test -s .security-results/opengrep.json
+
+        wc -c \
+          .security-results/opengrep.sarif \
+          .security-results/opengrep.json
+
+        echo
+        echo "OPENGREP_REAL_SCAN=PASS"

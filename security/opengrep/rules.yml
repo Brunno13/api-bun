@@ -1,0 +1,57 @@
+rules:
+  - id: security.javascript-typescript-eval
+    languages:
+      - javascript
+      - typescript
+    severity: ERROR
+    message: >
+      Uso de eval() detectado. Código dinâmico pode permitir execução
+      arbitrária quando dados externos atingem esta chamada.
+    pattern-either:
+      - pattern: eval(...)
+      - pattern: globalThis.eval(...)
+
+  - id: security.javascript-typescript-function-constructor
+    languages:
+      - javascript
+      - typescript
+    severity: ERROR
+    message: >
+      Uso do construtor Function detectado. Ele executa código construído
+      dinamicamente e deve ser evitado em caminhos influenciáveis por entrada externa.
+    pattern-either:
+      - pattern: new Function(...)
+      - pattern: Function(...)
+
+  - id: security.javascript-typescript-exec-call
+    languages:
+      - javascript
+      - typescript
+    severity: WARNING
+    message: >
+      Chamada exec()/execSync() detectada. Revise se argumentos externos podem
+      alcançar o shell sem validação ou escaping adequado.
+    pattern-either:
+      - pattern: $OBJ.exec(...)
+      - pattern: $OBJ.execSync(...)
+
+  - id: security.javascript-typescript-weak-hash
+    languages:
+      - javascript
+      - typescript
+    severity: WARNING
+    message: >
+      Hash MD5/SHA-1 detectado. Não utilize algoritmos criptograficamente fracos
+      para segurança, autenticação, integridade ou assinatura.
+    pattern-either:
+      - pattern: $OBJ.createHash("md5")
+      - pattern: $OBJ.createHash("sha1")
+
+  - id: security.javascript-typescript-disable-tls-verification
+    languages:
+      - generic
+    severity: ERROR
+    message: >
+      rejectUnauthorized:false desabilita a validação TLS e pode permitir
+      ataques man-in-the-middle.
+    pattern-regex: 'rejectUnauthorized\s*:\s*false'
