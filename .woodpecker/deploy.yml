@@ -18,6 +18,11 @@ steps:
 
   - name: notify-start-staging
     image: curlimages/curl
+
+    environment:
+      GOTIFY_TOKEN:
+        from_secret: gotify_token
+
     commands:
       - |
         TIMESTAMP="$(TZ=UTC3 date '+%d/%m/%Y %H:%M')"
@@ -27,7 +32,7 @@ steps:
           --max-time 10 \
           --output /dev/null \
           -X POST \
-          "https://gotify.brunnoserver.duckdns.org/message?token=A6vmGBx46fXa5Iv" \
+          "https://gotify.brunnoserver.duckdns.org/message?token=$GOTIFY_TOKEN" \
           -F "title=WoodpeckerCI" \
           -F "message=WoodpeckerCI · Api-bun · Staging pipeline started · $${TIMESTAMP}" \
           -F "priority=5" \
@@ -39,6 +44,11 @@ steps:
 
   - name: notify-start-production
     image: curlimages/curl
+
+    environment:
+      GOTIFY_TOKEN:
+        from_secret: gotify_token
+
     commands:
       - |
         TIMESTAMP="$(TZ=UTC3 date '+%d/%m/%Y %H:%M')"
@@ -48,7 +58,7 @@ steps:
           --max-time 10 \
           --output /dev/null \
           -X POST \
-          "https://gotify.brunnoserver.duckdns.org/message?token=A6vmGBx46fXa5Iv" \
+          "https://gotify.brunnoserver.duckdns.org/message?token=$GOTIFY_TOKEN" \
           -F "title=WoodpeckerCI" \
           -F "message=WoodpeckerCI · Api-bun · Production pipeline started · $${TIMESTAMP}" \
           -F "priority=5" \
@@ -783,6 +793,11 @@ steps:
 
   - name: notify-success-staging
     image: curlimages/curl
+
+    environment:
+      GOTIFY_TOKEN:
+        from_secret: gotify_token
+
     commands:
       - |
         TIMESTAMP="$(TZ=UTC3 date '+%d/%m/%Y %H:%M')"
@@ -792,7 +807,7 @@ steps:
           --max-time 10 \
           --output /dev/null \
           -X POST \
-          "https://gotify.brunnoserver.duckdns.org/message?token=A6vmGBx46fXa5Iv" \
+          "https://gotify.brunnoserver.duckdns.org/message?token=$GOTIFY_TOKEN" \
           -F "title=WoodpeckerCI" \
           -F "message=WoodpeckerCI · Api-bun · Staging pipeline finished successfully · $${TIMESTAMP}" \
           -F "priority=5" \
@@ -805,6 +820,11 @@ steps:
 
   - name: notify-error-staging
     image: curlimages/curl
+
+    environment:
+      GOTIFY_TOKEN:
+        from_secret: gotify_token
+
     commands:
       - |
         TIMESTAMP="$(TZ=UTC3 date '+%d/%m/%Y %H:%M')"
@@ -814,7 +834,7 @@ steps:
           --max-time 10 \
           --output /dev/null \
           -X POST \
-          "https://gotify.brunnoserver.duckdns.org/message?token=A6vmGBx46fXa5Iv" \
+          "https://gotify.brunnoserver.duckdns.org/message?token=$GOTIFY_TOKEN" \
           -F "title=WoodpeckerCI" \
           -F "message=WoodpeckerCI · Api-bun · Staging pipeline failed · $${TIMESTAMP}" \
           -F "priority=8" \
@@ -827,6 +847,11 @@ steps:
 
   - name: notify-success-production
     image: curlimages/curl
+
+    environment:
+      GOTIFY_TOKEN:
+        from_secret: gotify_token
+
     commands:
       - |
         TIMESTAMP="$(TZ=UTC3 date '+%d/%m/%Y %H:%M')"
@@ -836,7 +861,7 @@ steps:
           --max-time 10 \
           --output /dev/null \
           -X POST \
-          "https://gotify.brunnoserver.duckdns.org/message?token=A6vmGBx46fXa5Iv" \
+          "https://gotify.brunnoserver.duckdns.org/message?token=$GOTIFY_TOKEN" \
           -F "title=WoodpeckerCI" \
           -F "message=WoodpeckerCI · Api-bun · Production pipeline finished successfully · $${TIMESTAMP}" \
           -F "priority=5" \
@@ -848,6 +873,11 @@ steps:
 
   - name: notify-error-production
     image: curlimages/curl
+
+    environment:
+      GOTIFY_TOKEN:
+        from_secret: gotify_token
+
     commands:
       - |
         TIMESTAMP="$(TZ=UTC3 date '+%d/%m/%Y %H:%M')"
@@ -857,7 +887,7 @@ steps:
           --max-time 10 \
           --output /dev/null \
           -X POST \
-          "https://gotify.brunnoserver.duckdns.org/message?token=A6vmGBx46fXa5Iv" \
+          "https://gotify.brunnoserver.duckdns.org/message?token=$GOTIFY_TOKEN" \
           -F "title=WoodpeckerCI" \
           -F "message=WoodpeckerCI · Api-bun · Production pipeline failed · $${TIMESTAMP}" \
           -F "priority=8" \
