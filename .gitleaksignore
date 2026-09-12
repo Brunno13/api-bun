@@ -1,0 +1,41 @@
+# Baseline histórica conhecida.
+# Credenciais removidas do HEAD e/ou revogadas.
+# Novos findings NÃO devem ser adicionados automaticamente aqui.
+
+03c15ce536cdbc832bebc33d3bc5bf3d44edb215:.woodpecker.yml:generic-api-key:20
+03c15ce536cdbc832bebc33d3bc5bf3d44edb215:.woodpecker.yml:generic-api-key:229
+03c15ce536cdbc832bebc33d3bc5bf3d44edb215:.woodpecker.yml:generic-api-key:238
+03c15ce536cdbc832bebc33d3bc5bf3d44edb215:.woodpecker.yml:generic-api-key:247
+03c15ce536cdbc832bebc33d3bc5bf3d44edb215:.woodpecker.yml:generic-api-key:255
+03c15ce536cdbc832bebc33d3bc5bf3d44edb215:.woodpecker.yml:generic-api-key:28
+3d5246e887017535f4836c85a6dd3c5a9ce9b3c4:.env:generic-api-key:1
+926399f0b6bf5b825c2bd33b8bc29d08d252a1f4:.woodpecker.yml:generic-api-key:22
+926399f0b6bf5b825c2bd33b8bc29d08d252a1f4:.woodpecker.yml:generic-api-key:241
+926399f0b6bf5b825c2bd33b8bc29d08d252a1f4:.woodpecker.yml:generic-api-key:255
+926399f0b6bf5b825c2bd33b8bc29d08d252a1f4:.woodpecker.yml:generic-api-key:269
+926399f0b6bf5b825c2bd33b8bc29d08d252a1f4:.woodpecker.yml:generic-api-key:282
+926399f0b6bf5b825c2bd33b8bc29d08d252a1f4:.woodpecker.yml:generic-api-key:35
+ad04ae301d512f32eea661f0d6fa3b53d6b1fd0a:.woodpecker.yml:generic-api-key:32
+ad04ae301d512f32eea661f0d6fa3b53d6b1fd0a:.woodpecker.yml:generic-api-key:498
+ad04ae301d512f32eea661f0d6fa3b53d6b1fd0a:.woodpecker.yml:generic-api-key:520
+ad04ae301d512f32eea661f0d6fa3b53d6b1fd0a:.woodpecker.yml:generic-api-key:53
+ad04ae301d512f32eea661f0d6fa3b53d6b1fd0a:.woodpecker.yml:generic-api-key:542
+ad04ae301d512f32eea661f0d6fa3b53d6b1fd0a:.woodpecker.yml:generic-api-key:563
+ccd46266537a6f447761c6fdf9969da71774c049:.woodpecker.yml:generic-api-key:21
+ccd46266537a6f447761c6fdf9969da71774c049:.woodpecker.yml:generic-api-key:232
+ccd46266537a6f447761c6fdf9969da71774c049:.woodpecker.yml:generic-api-key:242
+ccd46266537a6f447761c6fdf9969da71774c049:.woodpecker.yml:generic-api-key:252
+ccd46266537a6f447761c6fdf9969da71774c049:.woodpecker.yml:generic-api-key:261
+ccd46266537a6f447761c6fdf9969da71774c049:.woodpecker.yml:generic-api-key:30
+f6b01f81c239c4c5e99699ccfd68add4219f43ea:.woodpecker.yml:generic-api-key:30
+f6b01f81c239c4c5e99699ccfd68add4219f43ea:.woodpecker.yml:generic-api-key:494
+f6b01f81c239c4c5e99699ccfd68add4219f43ea:.woodpecker.yml:generic-api-key:51
+f6b01f81c239c4c5e99699ccfd68add4219f43ea:.woodpecker.yml:generic-api-key:516
+f6b01f81c239c4c5e99699ccfd68add4219f43ea:.woodpecker.yml:generic-api-key:538
+f6b01f81c239c4c5e99699ccfd68add4219f43ea:.woodpecker.yml:generic-api-key:559
+fdfd6c392f0c5f2aeafc53b1b1a7619b48f1050b:.woodpecker.yml:generic-api-key:236
+fdfd6c392f0c5f2aeafc53b1b1a7619b48f1050b:.woodpecker.yml:generic-api-key:24
+fdfd6c392f0c5f2aeafc53b1b1a7619b48f1050b:.woodpecker.yml:generic-api-key:246
+fdfd6c392f0c5f2aeafc53b1b1a7619b48f1050b:.woodpecker.yml:generic-api-key:255
+fdfd6c392f0c5f2aeafc53b1b1a7619b48f1050b:.woodpecker.yml:generic-api-key:264
+fdfd6c392f0c5f2aeafc53b1b1a7619b48f1050b:.woodpecker.yml:generic-api-key:32

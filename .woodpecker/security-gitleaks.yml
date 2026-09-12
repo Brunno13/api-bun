@@ -151,11 +151,8 @@ steps:
         gitleaks version
 
         echo
-        echo "===== GITLEAKS GIT SCAN ====="
+        echo "===== GITLEAKS HISTORICO ====="
 
-        # Exit 10 significa "findings encontrados".
-        # Assim podemos aceitar findings nesta fase de baseline,
-        # mas ainda distinguir erros reais do scanner.
         set +e
 
         gitleaks git \
@@ -180,11 +177,6 @@ steps:
           cat .security-results/gitleaks.stderr.log >&2
         fi
 
-        echo
-        echo "GITLEAKS_EXIT_CODE=$GITLEAKS_RC"
-
-        # v8.30.x pode registrar erro do Git sem necessariamente
-        # produzir um exit code útil para nossa baseline.
         if grep -q 'ERR \[git\]' \
           .security-results/gitleaks.stderr.log; then
 
@@ -194,23 +186,25 @@ steps:
 
         case "$GITLEAKS_RC" in
           0)
-            echo "Nenhum finding encontrado."
+            echo "Histórico sem novos findings."
             ;;
 
           10)
-            echo "Findings encontrados; permitido nesta fase de baseline."
+            echo "Novos findings históricos detectados."
             ;;
 
           *)
-            echo "ERRO: Gitleaks terminou com código inesperado."
+            echo "ERRO: Gitleaks terminou com código inesperado: $GITLEAKS_RC"
             exit "$GITLEAKS_RC"
             ;;
         esac
 
-        test -s .security-results/gitleaks.json
+        if [ ! -f .security-results/gitleaks.json ]; then
+          printf '[]\n' > .security-results/gitleaks.json
+        fi
 
         echo
-        echo "GITLEAKS_SCAN=PASS"
+        echo "GITLEAKS_HISTORY_SCAN=PASS"
 
   # =========================================================
   # SCAN DO ESTADO ATUAL
@@ -242,30 +236,27 @@ steps:
 
         set -e
 
-        echo "GITLEAKS_CURRENT_EXIT_CODE=$GITLEAKS_CURRENT_RC"
-
         case "$GITLEAKS_CURRENT_RC" in
           0)
-            echo "Nenhum secret encontrado no estado atual."
+            echo "Estado atual sem findings."
             ;;
 
           10)
-            echo "Findings encontrados no estado atual."
+            echo "Novos findings encontrados no estado atual."
             ;;
 
           *)
-            echo "ERRO: Gitleaks current scan terminou com código inesperado."
+            echo "ERRO: Gitleaks current terminou com código inesperado: $GITLEAKS_CURRENT_RC"
             exit "$GITLEAKS_CURRENT_RC"
             ;;
         esac
 
-        # Gitleaks pode gerar [] quando não há findings.
         if [ ! -f .security-results/gitleaks-current.json ]; then
           printf '[]\n' > .security-results/gitleaks-current.json
         fi
 
         echo
-        echo "GITLEAKS_CURRENT_SCAN=PASS"  
+        echo "GITLEAKS_CURRENT_SCAN=PASS"
 
   # =========================================================
   # RESUMO SEGURO
@@ -281,114 +272,77 @@ steps:
 
         apk add --no-cache jq >/dev/null
 
-        REPORT=".security-results/gitleaks.json"
+        HISTORY_REPORT=".security-results/gitleaks.json"
+        CURRENT_REPORT=".security-results/gitleaks-current.json"
 
-        test -s "$REPORT"
+        test -f "$HISTORY_REPORT"
+        test -f "$CURRENT_REPORT"
 
         echo "===== GITLEAKS RESUMO ====="
 
-        FINDINGS="$(
-          jq 'length' "$REPORT"
+        HISTORY_FINDINGS="$(
+          jq 'length' "$HISTORY_REPORT"
         )"
 
-        FILES="$(
-          jq \
-            '[.[].File] | unique | length' \
-            "$REPORT"
+        CURRENT_FINDINGS="$(
+          jq 'length' "$CURRENT_REPORT"
         )"
 
-        COMMITS="$(
-          jq \
-            '[.[].Commit] | unique | length' \
-            "$REPORT"
-        )"
-
-        echo "FINDINGS=$FINDINGS"
-        echo "FILES_WITH_FINDINGS=$FILES"
-        echo "COMMITS_WITH_FINDINGS=$COMMITS"
+        echo "HISTORY_NEW_FINDINGS=$HISTORY_FINDINGS"
+        echo "CURRENT_FINDINGS=$CURRENT_FINDINGS"
 
         echo
-        echo "===== CONTAGEM POR REGRA ====="
-
-        jq -r '
-          sort_by(.RuleID)
-          | group_by(.RuleID)
-          | .[]
-          | "\(.[0].RuleID)=\(length)"
-        ' "$REPORT"
-
-        echo
-        echo "===== FINDINGS ====="
+        echo "===== NOVOS FINDINGS HISTORICOS ====="
 
         jq -r '
           .[]
           | "GITLEAKS rule=\(.RuleID // "-") file=\(.File // "-") line=\(.StartLine // "-") commit=\(.Commit // "-")"
-        ' "$REPORT"
+        ' "$HISTORY_REPORT"
 
         echo
-        echo "===== CLASSIFICACAO ====="
-
-        HISTORY_UNIQUE_SECRETS=$(
-          jq \
-            '[.[].Secret] | unique | length' \
-            .security-results/gitleaks.json
-        )
-
-        CURRENT_FINDINGS=$(
-          jq \
-            'length' \
-            .security-results/gitleaks-current.json
-        )
-
-        CURRENT_UNIQUE_SECRETS=$(
-          jq \
-            '[.[].Secret] | unique | length' \
-            .security-results/gitleaks-current.json
-        )
-
-        echo "HISTORY_UNIQUE_SECRETS=$HISTORY_UNIQUE_SECRETS"
-        echo "CURRENT_FINDINGS=$CURRENT_FINDINGS"
-        echo "CURRENT_UNIQUE_SECRETS=$CURRENT_UNIQUE_SECRETS"
-
-        echo
-        echo "===== FINDINGS ATUAIS POR ARQUIVO ====="
+        echo "===== FINDINGS ATUAIS ====="
 
         jq -r '
-          sort_by(.File)
-          | group_by(.File)
-          | .[]
-          | "\(.[0].File)=\(length)"
-        ' .security-results/gitleaks-current.json
-
-        echo
-        echo "===== HISTORICO POR ARQUIVO ====="
-
-        jq -r '
-          sort_by(.File)
-          | group_by(.File)
-          | .[]
-          | "\(.[0].File): findings=\(length) unique_secrets=\([.[].Secret] | unique | length) commits=\([.[].Commit] | unique | length)"
-        ' "$REPORT"
-
-        echo
-        echo "===== BASELINE HISTORICA PROPOSTA ====="
-
-        jq -r \
-          '.[].Fingerprint' \
-          "$REPORT" \
-          | sort -u
-
-        BASELINE_COUNT=$(
-          jq -r \
-            '.[].Fingerprint' \
-            "$REPORT" \
-          | sort -u \
-          | wc -l \
-          | tr -d ' '
-        )
-
-        echo
-        echo "BASELINE_COUNT=$BASELINE_COUNT"
+          .[]
+          | "GITLEAKS rule=\(.RuleID // "-") file=\(.File // "-") line=\(.StartLine // "-")"
+        ' "$CURRENT_REPORT"
 
         echo
         echo "GITLEAKS_SUMMARY=PASS"
+
+  - name: gitleaks-gate
+    image: alpine:3.23
+
+    commands:
+      - |
+        set -eu
+
+        apk add --no-cache jq >/dev/null
+
+        HISTORY_REPORT=".security-results/gitleaks.json"
+        CURRENT_REPORT=".security-results/gitleaks-current.json"
+
+        HISTORY_FINDINGS="$(
+          jq 'length' "$HISTORY_REPORT"
+        )"
+
+        CURRENT_FINDINGS="$(
+          jq 'length' "$CURRENT_REPORT"
+        )"
+
+        echo "===== GITLEAKS GATE ====="
+        echo "HISTORY_NEW_FINDINGS=$HISTORY_FINDINGS"
+        echo "CURRENT_FINDINGS=$CURRENT_FINDINGS"
+
+        if [ "$HISTORY_FINDINGS" -ne 0 ]; then
+          echo "❌ GATE FAIL: novos secrets foram encontrados no histórico."
+          exit 1
+        fi
+
+        if [ "$CURRENT_FINDINGS" -ne 0 ]; then
+          echo "❌ GATE FAIL: secrets existem no estado atual do repositório."
+          exit 1
+        fi
+
+        echo
+        echo "GITLEAKS_GATE=PASS"
