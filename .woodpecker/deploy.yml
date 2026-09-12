@@ -185,13 +185,54 @@ steps:
       - apk add --no-cache curl git jq
 
       - |
-        set -e
+        set -eu
+
+        # ---------------------------------------------------------
+        # CONFIGURAÇÃO
+        # ---------------------------------------------------------
+
+        API_BASE="https://gitea.brunnoserver.duckdns.org/api/v1"
+        REPO_API="$API_BASE/repos/${CI_REPO_OWNER}/${CI_REPO_NAME}"
+        RELEASES_URL="$REPO_API/releases"
+
+        TAG="${CI_COMMIT_TAG}"
+        RELEASE_NAME="Versão $TAG"
+
+        # Encode seguro para uso da tag em URL.
+        TAG_ENCODED=$(
+          printf '%s' "$TAG" \
+          | jq -sRr @uri
+        )
+
+        echo "=========================================="
+        echo " RELEASE GITEA"
+        echo "=========================================="
+        echo "Repositório: ${CI_REPO_OWNER}/${CI_REPO_NAME}"
+        echo "Tag atual:   $TAG"
+
+        # ---------------------------------------------------------
+        # GARANTIR HISTÓRICO COMPLETO + TAGS
+        # ---------------------------------------------------------
 
         git config remote.origin.fetch \
           "+refs/heads/*:refs/remotes/origin/*"
 
-        git fetch --all --unshallow || git fetch --all
-        git fetch --tags
+        if [ "$(git rev-parse --is-shallow-repository)" = "true" ]; then
+          echo "Repository shallow detectado. Expandindo histórico..."
+          git fetch --unshallow --tags
+        else
+          echo "Repository já possui histórico completo."
+          git fetch --tags
+        fi
+
+        git fetch --all --prune
+
+        # ---------------------------------------------------------
+        # DESCOBRIR TAG ANTERIOR
+        #
+        # HEAD é o commit da tag atual.
+        # HEAD^ impede que a própria tag atual seja retornada.
+        # ---------------------------------------------------------
 
         PREV_TAG=$(
           git describe \
@@ -199,21 +240,37 @@ steps:
             --abbrev=0 \
             HEAD^ \
             2>/dev/null \
-          || echo ""
+          || true
         )
 
-        if [ -z "$PREV_TAG" ]; then
+        if [ -n "$PREV_TAG" ]; then
+          echo "Tag anterior: $PREV_TAG"
+
+          CHANGELOG=$(
+            git log \
+              --pretty=format:"- %h %s" \
+              "$PREV_TAG..HEAD"
+          )
+        else
+          echo "Tag anterior: nenhuma"
+
           CHANGELOG=$(
             git log \
               --pretty=format:"- %h %s"
           )
-        else
-          CHANGELOG=$(
-            git log \
-              --pretty=format:"- %h %s" \
-              "${PREV_TAG}..HEAD"
-          )
         fi
+
+        if [ -z "$CHANGELOG" ]; then
+          CHANGELOG="- Nenhum commit novo encontrado para esta versão."
+        fi
+
+        echo
+        echo "=== COMMITS DA RELEASE ==="
+        printf '%s\n' "$CHANGELOG"
+
+        # ---------------------------------------------------------
+        # RELEASE NOTES
+        # ---------------------------------------------------------
 
         RELEASE_BODY=$(
           printf \
@@ -225,78 +282,297 @@ steps:
           "$RELEASE_BODY" \
           > .release_body.txt
 
-        JSON_PAYLOAD=$(
+        # Payload usado para criação.
+        CREATE_PAYLOAD=$(
           jq \
             -n \
-            --arg tag "${CI_COMMIT_TAG}" \
-            --arg name "Versão ${CI_COMMIT_TAG}" \
+            --arg tag "$TAG" \
+            --arg name "$RELEASE_NAME" \
             --arg body "$RELEASE_BODY" \
             '{
               tag_name: $tag,
               name: $name,
-              body: $body
+              body: $body,
+              draft: false,
+              prerelease: false
             }'
         )
 
-        echo "=== ENVIANDO RELEASE PARA O GITEA ==="
-
-        RESPONSE=$(
-          curl \
-            -s \
-            -X POST \
-            "https://gitea.brunnoserver.duckdns.org/api/v1/repos/${CI_REPO_OWNER}/${CI_REPO_NAME}/releases" \
-            -H "Accept: application/json" \
-            -H "Authorization: token $GITEA_TOKEN" \
-            -H "Content-Type: application/json" \
-            -d "$JSON_PAYLOAD"
+        # Payload usado caso a release já exista.
+        UPDATE_PAYLOAD=$(
+          jq \
+            -n \
+            --arg tag "$TAG" \
+            --arg name "$RELEASE_NAME" \
+            --arg body "$RELEASE_BODY" \
+            '{
+              tag_name: $tag,
+              name: $name,
+              body: $body,
+              draft: false,
+              prerelease: false
+            }'
         )
 
-        echo "Resposta da API do Gitea: $RESPONSE"
+        # ---------------------------------------------------------
+        # RELEASE IDEMPOTENTE
+        #
+        # 200 -> release já existe -> atualizar
+        # 404 -> release não existe -> criar
+        # outros -> falhar
+        # ---------------------------------------------------------
+
+        echo
+        echo "=== VERIFICANDO RELEASE EXISTENTE ==="
+
+        RELEASE_LOOKUP_FILE=$(
+          mktemp
+        )
+
+        HTTP_CODE=$(
+          curl \
+            -sS \
+            -o "$RELEASE_LOOKUP_FILE" \
+            -w '%{http_code}' \
+            "$REPO_API/releases/tags/$TAG_ENCODED" \
+            -H "Accept: application/json" \
+            -H "Authorization: token $GITEA_TOKEN"
+        )
+
+        case "$HTTP_CODE" in
+
+          200)
+            echo "Release $TAG já existe. Atualizando..."
+
+            RELEASE_ID=$(
+              jq -r \
+                '.id // empty' \
+                "$RELEASE_LOOKUP_FILE"
+            )
+
+            if [ -z "$RELEASE_ID" ]; then
+              echo "❌ ERRO: Release encontrada, mas sem ID válido."
+              rm -f "$RELEASE_LOOKUP_FILE"
+              exit 1
+            fi
+
+            RESPONSE=$(
+              curl \
+                -fsS \
+                -X PATCH \
+                "$RELEASES_URL/$RELEASE_ID" \
+                -H "Accept: application/json" \
+                -H "Authorization: token $GITEA_TOKEN" \
+                -H "Content-Type: application/json" \
+                -d "$UPDATE_PAYLOAD"
+            )
+
+            echo "Release existente atualizada."
+            ;;
+
+          404)
+            echo "Release $TAG ainda não existe. Criando..."
+
+            RESPONSE=$(
+              curl \
+                -fsS \
+                -X POST \
+                "$RELEASES_URL" \
+                -H "Accept: application/json" \
+                -H "Authorization: token $GITEA_TOKEN" \
+                -H "Content-Type: application/json" \
+                -d "$CREATE_PAYLOAD"
+            )
+
+            RELEASE_ID=$(
+              printf '%s' "$RESPONSE" \
+              | jq -r '.id // empty'
+            )
+
+            echo "Nova release criada."
+            ;;
+
+          *)
+            echo "❌ ERRO ao consultar release $TAG."
+            echo "HTTP_CODE=$HTTP_CODE"
+
+            echo "Resposta do Gitea:"
+            cat "$RELEASE_LOOKUP_FILE"
+
+            rm -f "$RELEASE_LOOKUP_FILE"
+            exit 1
+            ;;
+        esac
+
+        rm -f "$RELEASE_LOOKUP_FILE"
+
+        # ---------------------------------------------------------
+        # VALIDAR RESPOSTA FINAL
+        # ---------------------------------------------------------
 
         RELEASE_ID=$(
-          echo "$RESPONSE" \
-          | jq -r '.id'
+          printf '%s' "$RESPONSE" \
+          | jq -r '.id // empty'
         )
 
-        if [ "$RELEASE_ID" = "null" ] \
-          || [ -z "$RELEASE_ID" ]; then
-
-          echo "❌ ERRO: O Gitea não retornou um ID válido."
-
-          echo \
-            "Se a tag ou a release já existir, remova-a no painel e tente novamente."
-
+        if [ -z "$RELEASE_ID" ]; then
+          echo "❌ ERRO: O Gitea não retornou RELEASE_ID válido."
           exit 1
         fi
 
+        UPLOAD_URL=$(
+          printf '%s' "$RESPONSE" \
+          | jq -r '.upload_url // empty'
+        )
+
+        # Fallback para versões do Gitea que eventualmente não
+        # retornem upload_url na resposta.
+        if [ -z "$UPLOAD_URL" ]; then
+          UPLOAD_URL="$RELEASES_URL/$RELEASE_ID/assets"
+        fi
+
+        echo
+        echo "=== RELEASE PRONTA ==="
+        echo "TAG=$TAG"
+        echo "RELEASE_ID=$RELEASE_ID"
+
+        # ---------------------------------------------------------
+        # VALIDAR BINÁRIOS ANTES DE MODIFICAR ATTACHMENTS
+        # ---------------------------------------------------------
+
+        echo
         echo "=== VERIFICANDO PASTA DE BINÁRIOS ==="
 
         ls -lah ./bin/
 
+        for FILE in \
+          ./bin/api-bun-linux \
+          ./bin/api-bun-windows.exe \
+          ./bin/api-bun-macos
+        do
+          if [ ! -s "$FILE" ]; then
+            echo "❌ ERRO: arquivo ausente ou vazio: $FILE"
+            exit 1
+          fi
+        done
+
+        # ---------------------------------------------------------
+        # CARREGAR ATTACHMENTS EXISTENTES
+        # ---------------------------------------------------------
+
+        echo
+        echo "=== CONSULTANDO ANEXOS EXISTENTES ==="
+
+        ASSETS=$(
+          curl \
+            -fsS \
+            "$RELEASES_URL/$RELEASE_ID/assets" \
+            -H "Accept: application/json" \
+            -H "Authorization: token $GITEA_TOKEN"
+        )
+
+        # ---------------------------------------------------------
+        # FUNÇÃO DE UPLOAD IDEMPOTENTE
+        #
+        # Caso já exista attachment com o mesmo nome:
+        #   1. remove o attachment antigo
+        #   2. envia o binário atual
+        #
+        # Um retry converge para o mesmo estado final.
+        # ---------------------------------------------------------
+
+        upload_asset()
+        {
+          FILE_PATH="$1"
+          ASSET_NAME="$2"
+
+          echo
+          echo "=== ASSET: $ASSET_NAME ==="
+
+          EXISTING_IDS=$(
+            printf '%s' "$ASSETS" \
+            | jq \
+                -r \
+                --arg name "$ASSET_NAME" \
+                '.[] | select(.name == $name) | .id'
+          )
+
+          if [ -n "$EXISTING_IDS" ]; then
+            echo "Anexo existente encontrado. Removendo antes do reupload..."
+
+            for ASSET_ID in $EXISTING_IDS
+            do
+              echo "Removendo attachment ID=$ASSET_ID"
+
+              curl \
+                -fsS \
+                -X DELETE \
+                "$RELEASES_URL/$RELEASE_ID/assets/$ASSET_ID" \
+                -H "Authorization: token $GITEA_TOKEN"
+            done
+          else
+            echo "Nenhum anexo anterior com esse nome."
+          fi
+
+          ASSET_NAME_ENCODED=$(
+            printf '%s' "$ASSET_NAME" \
+            | jq -sRr @uri
+          )
+
+          echo "Enviando $ASSET_NAME..."
+
+          UPLOAD_RESPONSE=$(
+            curl \
+              -fsS \
+              -X POST \
+              "$UPLOAD_URL?name=$ASSET_NAME_ENCODED" \
+              -H "Authorization: token $GITEA_TOKEN" \
+              -F "attachment=@$FILE_PATH"
+          )
+
+          UPLOADED_NAME=$(
+            printf '%s' "$UPLOAD_RESPONSE" \
+            | jq -r '.name // empty'
+          )
+
+          UPLOADED_ID=$(
+            printf '%s' "$UPLOAD_RESPONSE" \
+            | jq -r '.id // empty'
+          )
+
+          if [ "$UPLOADED_NAME" != "$ASSET_NAME" ] \
+            || [ -z "$UPLOADED_ID" ]; then
+
+            echo "❌ ERRO: Gitea não confirmou o upload de $ASSET_NAME."
+            exit 1
+          fi
+
+          echo "✅ $ASSET_NAME enviado com sucesso. ID=$UPLOADED_ID"
+        }
+
+        # ---------------------------------------------------------
+        # UPLOAD DOS TRÊS BINÁRIOS
+        # ---------------------------------------------------------
+
+        echo
         echo "=== INICIANDO UPLOAD DOS ANEXOS ==="
 
-        curl \
-          -fsS \
-          -X POST \
-          "https://gitea.brunnoserver.duckdns.org/api/v1/repos/${CI_REPO_OWNER}/${CI_REPO_NAME}/releases/$${RELEASE_ID}/assets?name=api-bun-linux" \
-          -H "Authorization: token $GITEA_TOKEN" \
-          -F "attachment=@./bin/api-bun-linux"
+        upload_asset \
+          "./bin/api-bun-linux" \
+          "api-bun-linux"
 
-        curl \
-          -fsS \
-          -X POST \
-          "https://gitea.brunnoserver.duckdns.org/api/v1/repos/${CI_REPO_OWNER}/${CI_REPO_NAME}/releases/$${RELEASE_ID}/assets?name=api-bun-windows.exe" \
-          -H "Authorization: token $GITEA_TOKEN" \
-          -F "attachment=@./bin/api-bun-windows.exe"
+        upload_asset \
+          "./bin/api-bun-windows.exe" \
+          "api-bun-windows.exe"
 
-        curl \
-          -fsS \
-          -X POST \
-          "https://gitea.brunnoserver.duckdns.org/api/v1/repos/${CI_REPO_OWNER}/${CI_REPO_NAME}/releases/$${RELEASE_ID}/assets?name=api-bun-macos" \
-          -H "Authorization: token $GITEA_TOKEN" \
-          -F "attachment=@./bin/api-bun-macos"
+        upload_asset \
+          "./bin/api-bun-macos" \
+          "api-bun-macos"
 
-        echo "✅ DEPLOY FINALIZADO COM SUCESSO NO GITEA!"
+        echo
+        echo "=========================================="
+        echo "✅ RELEASE FINALIZADA COM SUCESSO NO GITEA"
+        echo "=========================================="
 
     when:
       - event: tag
