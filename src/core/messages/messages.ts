@@ -59,6 +59,7 @@ export const MESSAGES = {
     [ErrorCode.INVALID_DATA]: { message: "Os dados fornecidos são inválidos.", status: HttpStatus.UNPROCESSABLE_ENTITY },
     [ErrorCode.UPLOAD_FAILED]: { message: "Falha ao processar o upload do arquivo. Tente novamente mais tarde.", status: HttpStatus.INTERNAL_SERVER_ERROR },
     [ErrorCode.ROUTE_NOT_FOUND]: { message: "A rota solicitada não existe.", status: HttpStatus.NOT_FOUND },
+    [ErrorCode.UNKNOWN_APP_ERROR]: { message: "Erro desconhecido na aplicação.", status: HttpStatus.INTERNAL_SERVER_ERROR },
   },
 
   SYSTEM: {

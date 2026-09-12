@@ -1,0 +1,85 @@
+when:
+  - event: manual
+
+labels:
+  platform: linux/amd64
+  role: build-linux
+
+depends_on:
+  - security-gitleaks
+
+steps:
+  # =========================================================
+  # DEPENDÊNCIAS
+  # =========================================================
+
+  - name: quality-install
+    image: oven/bun:1.3.14
+
+    commands:
+      - |
+        set -eu
+
+        echo "===== QUALITY / ENVIRONMENT ====="
+        echo "BUN=$(bun --version)"
+
+        echo
+        echo "===== INSTALL ====="
+
+        bun install --frozen-lockfile
+
+        echo
+        echo "QUALITY_INSTALL=PASS"
+
+  # =========================================================
+  # TYPESCRIPT
+  # =========================================================
+
+  - name: quality-typecheck
+    image: oven/bun:1.3.14
+
+    commands:
+      - |
+        set -eu
+
+        echo "===== TYPESCRIPT ====="
+
+        bun run typecheck
+
+        echo
+        echo "QUALITY_TYPECHECK=PASS"
+
+  # =========================================================
+  # TESTES
+  # =========================================================
+
+  - name: quality-tests
+    image: oven/bun:1.3.14
+
+    commands:
+      - |
+        set -eu
+
+        echo "===== TESTS ====="
+
+        bun run test
+
+        echo
+        echo "QUALITY_TESTS=PASS"
+
+  # =========================================================
+  # RESUMO
+  # =========================================================
+
+  - name: quality-summary
+    image: alpine:3.23
+
+    commands:
+      - |
+        set -eu
+
+        echo "===== QUALITY GATE ====="
+        echo "TYPECHECK=PASS"
+        echo "TESTS=PASS"
+        echo
+        echo "QUALITY_GATE=PASS"

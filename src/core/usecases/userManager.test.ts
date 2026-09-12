@@ -73,14 +73,22 @@ describe("UserManager Unit Tests", () => {
       const email = "notfound@test.com";
       mockUserRepository.updateByEmail.mockResolvedValue(null);
 
+      let thrown: unknown;
+
       try {
         await userManager.updateByEmail(email, { age: 40 });
-        expect.fail("Should have thrown an AppError");
-      } catch (error: any) {
-        expect(error).toBeInstanceOf(AppError);
-        expect(error.statusCode).toBe(HttpStatus.NOT_FOUND);
-        expect(error.code).toBe(ErrorCode.USER_NOT_FOUND);
+      } catch (error) {
+        thrown = error;
       }
+
+      expect(thrown).toBeInstanceOf(AppError);
+
+      if (!(thrown instanceof AppError)) {
+        throw new Error("Expected userManager.updateByEmail to throw AppError");
+      }
+
+      expect(thrown.statusCode).toBe(HttpStatus.NOT_FOUND);
+      expect(thrown.code).toBe(ErrorCode.USER_NOT_FOUND);
     });
   });
 
@@ -99,14 +107,22 @@ describe("UserManager Unit Tests", () => {
       const email = "notfound@test.com";
       mockUserRepository.deleteByEmail.mockResolvedValue(false);
 
+      let thrown: unknown;
+
       try {
         await userManager.deleteByEmail(email);
-        expect.fail("Should have thrown an AppError");
-      } catch (error: any) {
-        expect(error).toBeInstanceOf(AppError);
-        expect(error.statusCode).toBe(HttpStatus.NOT_FOUND);
-        expect(error.code).toBe(ErrorCode.USER_NOT_FOUND);
+      } catch (error) {
+        thrown = error;
       }
+
+      expect(thrown).toBeInstanceOf(AppError);
+
+      if (!(thrown instanceof AppError)) {
+        throw new Error("Expected userManager.deleteByEmail to throw AppError");
+      }
+
+      expect(thrown.statusCode).toBe(HttpStatus.NOT_FOUND);
+      expect(thrown.code).toBe(ErrorCode.USER_NOT_FOUND);
     });
   });
 });
