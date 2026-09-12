@@ -278,21 +278,21 @@ steps:
         curl \
           -fsS \
           -X POST \
-          "https://gitea.brunnoserver.duckdns.org/api/v1/repos/${CI_REPO_OWNER}/${CI_REPO_NAME}/releases/${RELEASE_ID}/assets?name=api-bun-linux" \
+          "https://gitea.brunnoserver.duckdns.org/api/v1/repos/${CI_REPO_OWNER}/${CI_REPO_NAME}/releases/$${RELEASE_ID}/assets?name=api-bun-linux" \
           -H "Authorization: token $GITEA_TOKEN" \
           -F "attachment=@./bin/api-bun-linux"
 
         curl \
           -fsS \
           -X POST \
-          "https://gitea.brunnoserver.duckdns.org/api/v1/repos/${CI_REPO_OWNER}/${CI_REPO_NAME}/releases/${RELEASE_ID}/assets?name=api-bun-windows.exe" \
+          "https://gitea.brunnoserver.duckdns.org/api/v1/repos/${CI_REPO_OWNER}/${CI_REPO_NAME}/releases/$${RELEASE_ID}/assets?name=api-bun-windows.exe" \
           -H "Authorization: token $GITEA_TOKEN" \
           -F "attachment=@./bin/api-bun-windows.exe"
 
         curl \
           -fsS \
           -X POST \
-          "https://gitea.brunnoserver.duckdns.org/api/v1/repos/${CI_REPO_OWNER}/${CI_REPO_NAME}/releases/${RELEASE_ID}/assets?name=api-bun-macos" \
+          "https://gitea.brunnoserver.duckdns.org/api/v1/repos/${CI_REPO_OWNER}/${CI_REPO_NAME}/releases/$${RELEASE_ID}/assets?name=api-bun-macos" \
           -H "Authorization: token $GITEA_TOKEN" \
           -F "attachment=@./bin/api-bun-macos"
 
