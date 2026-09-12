@@ -1,0 +1,133 @@
+when:
+  - event: manual
+
+labels:
+  platform: linux/amd64
+  role: build-linux
+
+depends_on:
+  - security-trivy
+
+steps:
+  # =========================================================
+  # PREPARAR HISTÓRICO GIT COMPLETO
+  # =========================================================
+
+  - name: gitleaks-prepare-history
+    image: alpine:3.23
+
+    commands:
+      - |
+        set -eu
+
+        apk add --no-cache git >/dev/null
+
+        echo "===== GITLEAKS / HISTORICO GIT ====="
+
+        git config remote.origin.fetch \
+          "+refs/heads/*:refs/remotes/origin/*"
+
+        if [ "$(git rev-parse --is-shallow-repository)" = "true" ]; then
+          echo "Clone shallow detectado. Expandindo histórico..."
+
+          git fetch \
+            --unshallow \
+            --tags \
+            --prune
+        else
+          echo "Clone já possui histórico completo."
+
+          git fetch \
+            --all \
+            --tags \
+            --prune
+        fi
+
+        echo
+        echo "SHALLOW=$(git rev-parse --is-shallow-repository)"
+        echo "COMMITS_ALL=$(git rev-list --all --count)"
+        echo "TAGS=$(git tag | wc -l | tr -d ' ')"
+
+        echo
+        echo "GITLEAKS_HISTORY_PREPARE=PASS"
+
+  # =========================================================
+  # SCAN COMPLETO DO HISTÓRICO
+  # =========================================================
+
+  - name: gitleaks-scan
+    image: ghcr.io/gitleaks/gitleaks:v8.30.1@sha256:b109bc5f8f76a38196a3e413704fc5b9e3c32360bce4e4b603bd6f45b3721dbb
+
+    commands:
+      - |
+        set -eu
+
+        mkdir -p .security-results
+
+        echo "===== GITLEAKS VERSION ====="
+        gitleaks version
+
+        echo
+        echo "===== GITLEAKS GIT SCAN ====="
+
+        gitleaks git \
+          --redact=100 \
+          --no-banner \
+          --no-color \
+          --log-opts="--all" \
+          --report-format=json \
+          --report-path=.security-results/gitleaks.json \
+          --exit-code=0 \
+          .
+
+        test -s .security-results/gitleaks.json
+
+        echo
+        echo "GITLEAKS_SCAN=PASS"
+
+  # =========================================================
+  # RESUMO SEGURO
+  # Não imprime Secret nem Match
+  # =========================================================
+
+  - name: gitleaks-summary
+    image: alpine:3.23
+
+    commands:
+      - |
+        set -eu
+
+        apk add --no-cache jq >/dev/null
+
+        REPORT=".security-results/gitleaks.json"
+
+        test -s "$REPORT"
+
+        echo "===== GITLEAKS RESUMO ====="
+
+        FINDINGS=$(
+          jq 'length' "$REPORT"
+        )
+
+        echo "FINDINGS=$FINDINGS"
+
+        echo
+        echo "===== CONTAGEM POR REGRA ====="
+
+        jq -r '
+          sort_by(.RuleID)
+          | group_by(.RuleID)
+          | .[]
+          | "\(.[0].RuleID)=\(length)"
+        ' "$REPORT"
+
+        echo
+        echo "===== FINDINGS ====="
+
+        jq -r '
+          .[]
+          | "GITLEAKS rule=\(.RuleID // "-") file=\(.File // "-") line=\(.StartLine // "-") commit=\(.Commit // "-")"
+        ' "$REPORT"
+
+        echo
+        echo "GITLEAKS_SUMMARY=PASS"
