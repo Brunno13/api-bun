@@ -8,9 +8,22 @@ labels:
 depends_on:
   - security-trivy
 
+# =========================================================
+# O Gitleaks precisa do histórico + objetos completos.
+# O clone parcial padrão do Woodpecker não serve para isso.
+# =========================================================
+
+clone:
+  git:
+    image: woodpeckerci/plugin-git
+    settings:
+      partial: false
+      depth: 0
+      tags: true
+
 steps:
   # =========================================================
-  # PREPARAR HISTÓRICO GIT COMPLETO
+  # VALIDAR HISTÓRICO GIT COMPLETO
   # =========================================================
 
   - name: gitleaks-prepare-history
@@ -27,26 +40,96 @@ steps:
         git config remote.origin.fetch \
           "+refs/heads/*:refs/remotes/origin/*"
 
-        if [ "$(git rev-parse --is-shallow-repository)" = "true" ]; then
-          echo "Clone shallow detectado. Expandindo histórico..."
+        git fetch \
+          --all \
+          --tags \
+          --prune
 
-          git fetch \
-            --unshallow \
-            --tags \
-            --prune
-        else
-          echo "Clone já possui histórico completo."
+        SHALLOW="$(
+          git rev-parse --is-shallow-repository
+        )"
 
-          git fetch \
-            --all \
-            --tags \
-            --prune
+        COMMITS_ALL="$(
+          git rev-list --all --count
+        )"
+
+        TAGS="$(
+          git tag | wc -l | tr -d ' '
+        )"
+
+        PROMISOR="$(
+          git config --get remote.origin.promisor \
+          || true
+        )"
+
+        PARTIAL_FILTER="$(
+          git config --get remote.origin.partialclonefilter \
+          || true
+        )"
+
+        echo "SHALLOW=$SHALLOW"
+        echo "COMMITS_ALL=$COMMITS_ALL"
+        echo "TAGS=$TAGS"
+        echo "PROMISOR=${PROMISOR:-false}"
+        echo "PARTIAL_FILTER=${PARTIAL_FILTER:-none}"
+
+        if [ "$SHALLOW" != "false" ]; then
+          echo "ERRO: o repositório ainda está shallow."
+          exit 1
+        fi
+
+        if [ "$PROMISOR" = "true" ]; then
+          echo "ERRO: o clone ainda está configurado como promisor/partial."
+          exit 1
+        fi
+
+        if [ -n "$PARTIAL_FILTER" ]; then
+          echo "ERRO: partialclonefilter ainda está configurado."
+          exit 1
         fi
 
         echo
-        echo "SHALLOW=$(git rev-parse --is-shallow-repository)"
-        echo "COMMITS_ALL=$(git rev-list --all --count)"
-        echo "TAGS=$(git tag | wc -l | tr -d ' ')"
+        echo "===== VERIFICANDO OBJETOS AUSENTES ====="
+
+        MISSING_OBJECTS="$(
+          git rev-list \
+            --objects \
+            --all \
+            --missing=print \
+          | grep '^?' \
+          || true
+        )"
+
+        if [ -n "$MISSING_OBJECTS" ]; then
+          echo "ERRO: existem objetos Git ausentes."
+          printf '%s\n' "$MISSING_OBJECTS"
+          exit 1
+        fi
+
+        echo "MISSING_OBJECTS=0"
+
+        echo
+        echo "===== GIT FSCK ====="
+
+        git fsck \
+          --full \
+          --no-dangling
+
+        echo
+        echo "===== PREFLIGHT GIT LOG ====="
+
+        # Executa exatamente a classe de operação que o Gitleaks
+        # precisa realizar. Qualquer objeto histórico ausente deve
+        # derrubar o workflow aqui, antes do scanner.
+        git log \
+          -p \
+          -U0 \
+          --full-history \
+          --all \
+          --diff-filter=tuxdb \
+          >/dev/null
+
+        echo "GIT_LOG_PREFLIGHT=PASS"
 
         echo
         echo "GITLEAKS_HISTORY_PREPARE=PASS"
@@ -70,15 +153,59 @@ steps:
         echo
         echo "===== GITLEAKS GIT SCAN ====="
 
+        # Exit 10 significa "findings encontrados".
+        # Assim podemos aceitar findings nesta fase de baseline,
+        # mas ainda distinguir erros reais do scanner.
+        set +e
+
         gitleaks git \
+          --platform=gitea \
           --redact=100 \
           --no-banner \
           --no-color \
-          --log-opts="--all" \
           --report-format=json \
           --report-path=.security-results/gitleaks.json \
-          --exit-code=0 \
-          .
+          --exit-code=10 \
+          . \
+          >.security-results/gitleaks.stdout.log \
+          2>.security-results/gitleaks.stderr.log
+
+        GITLEAKS_RC="$?"
+
+        set -e
+
+        cat .security-results/gitleaks.stdout.log
+
+        if [ -s .security-results/gitleaks.stderr.log ]; then
+          cat .security-results/gitleaks.stderr.log >&2
+        fi
+
+        echo
+        echo "GITLEAKS_EXIT_CODE=$GITLEAKS_RC"
+
+        # v8.30.x pode registrar erro do Git sem necessariamente
+        # produzir um exit code útil para nossa baseline.
+        if grep -q 'ERR \[git\]' \
+          .security-results/gitleaks.stderr.log; then
+
+          echo "ERRO: Gitleaks reportou falha ao processar o Git."
+          exit 1
+        fi
+
+        case "$GITLEAKS_RC" in
+          0)
+            echo "Nenhum finding encontrado."
+            ;;
+
+          10)
+            echo "Findings encontrados; permitido nesta fase de baseline."
+            ;;
+
+          *)
+            echo "ERRO: Gitleaks terminou com código inesperado."
+            exit "$GITLEAKS_RC"
+            ;;
+        esac
 
         test -s .security-results/gitleaks.json
 
@@ -87,7 +214,7 @@ steps:
 
   # =========================================================
   # RESUMO SEGURO
-  # Não imprime Secret nem Match
+  # Não imprime Secret nem Match.
   # =========================================================
 
   - name: gitleaks-summary
@@ -105,11 +232,25 @@ steps:
 
         echo "===== GITLEAKS RESUMO ====="
 
-        FINDINGS=$(
+        FINDINGS="$(
           jq 'length' "$REPORT"
-        )
+        )"
+
+        FILES="$(
+          jq \
+            '[.[].File] | unique | length' \
+            "$REPORT"
+        )"
+
+        COMMITS="$(
+          jq \
+            '[.[].Commit] | unique | length' \
+            "$REPORT"
+        )"
 
         echo "FINDINGS=$FINDINGS"
+        echo "FILES_WITH_FINDINGS=$FILES"
+        echo "COMMITS_WITH_FINDINGS=$COMMITS"
 
         echo
         echo "===== CONTAGEM POR REGRA ====="
