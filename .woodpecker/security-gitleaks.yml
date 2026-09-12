@@ -368,7 +368,27 @@ steps:
           | group_by(.File)
           | .[]
           | "\(.[0].File): findings=\(length) unique_secrets=\([.[].Secret] | unique | length) commits=\([.[].Commit] | unique | length)"
-        ' .security-results/gitleaks.json
+        ' "$REPORT"
+
+        echo
+        echo "===== BASELINE HISTORICA PROPOSTA ====="
+
+        jq -r \
+          '.[].Fingerprint' \
+          "$REPORT" \
+          | sort -u
+
+        BASELINE_COUNT=$(
+          jq -r \
+            '.[].Fingerprint' \
+            "$REPORT" \
+          | sort -u \
+          | wc -l \
+          | tr -d ' '
+        )
+
+        echo
+        echo "BASELINE_COUNT=$BASELINE_COUNT"
 
         echo
         echo "GITLEAKS_SUMMARY=PASS"
