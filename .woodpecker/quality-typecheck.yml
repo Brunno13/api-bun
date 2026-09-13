@@ -66,6 +66,18 @@ steps:
         echo
         echo "QUALITY_TESTS=PASS"
 
+  - name: quality-coverage
+    image: oven/bun:1.3.14
+    commands:
+      - |
+        set -eu
+
+        echo "===== COVERAGE ====="
+        bun run coverage:check
+
+        echo
+        echo "QUALITY_COVERAGE=PASS"
+
   - name: quality-summary
     image: alpine:3.23
     commands:
@@ -76,6 +88,7 @@ steps:
         echo "TYPECHECK=PASS"
         echo "LINT=PASS"
         echo "TESTS=PASS"
+        echo "COVERAGE=PASS"
 
         echo
         echo "QUALITY_GATE=PASS"
