@@ -13,12 +13,18 @@ const envSchema = z.object({
   NODE_ENV: z
     .enum(["development", "production", "test"])
     .default("development"),
+
+  BOOTSTRAP_ADMIN_EMAIL: z.string().email().optional(),
+  BOOTSTRAP_ADMIN_PASSWORD: z.string().min(8).optional(),
 });
 
 const _env = envSchema.safeParse(process.env);
 
 if (!_env.success) {
-  console.error("❌ Invalid environment variables:", _env.error.format());
+  console.error(
+    "❌ Invalid environment variables:",
+    _env.error.format(),
+  );
   process.exit(1);
 }
 

@@ -6,6 +6,7 @@ import { db } from "../db/db";
 import * as schema from "../db/schema";
 import { UserRole } from "../../core/messages/messages";
 import { logger } from "../../core/utils/logger";
+import { config } from "../../config";
 
 export const auth = betterAuth({
   baseURL: process.env.BETTER_AUTH_URL || "http://localhost:3000",
@@ -38,29 +39,41 @@ export const auth = betterAuth({
 });
 
 export const seedAdmin = async () => {
+  const email = config.BOOTSTRAP_ADMIN_EMAIL;
+  const password = config.BOOTSTRAP_ADMIN_PASSWORD;
+
+  if (!email || !password) {
+    logger.info( "Bootstrap do administrador não configurado; seed ignorado." );
+    return;
+  }
+
   try {
-    const existingAdmin = await db.select().from(schema.user).where(eq(schema.user.email, "admin@admin.com"));
-    
-    if (existingAdmin.length === 0) {
-      logger.info("🌱 Semeando usuário administrador padrão...");
-      
-      const response = await auth.api.signUpEmail({
-        body: {
-          name: "Administrador do Sistema",
-          email: "admin@admin.com",
-          password: "admin1234",
-          age: 99,
-          role: UserRole.ADMIN 
-        }
-      });
-      
-      if (response && response.user) {
-        logger.info("✅ Admin criado! (E-mail: admin@admin.com | Senha: admin1234)");
-      } else {
-        logger.error({ response }, "❌ O Better Auth não conseguiu criar o usuário.");
-      }
+    const existingAdmin = await db.select().from(schema.user).where(eq(schema.user.email, email));
+
+    if (existingAdmin.length > 0) {
+      logger.info( { email }, "Administrador de bootstrap já existe; seed ignorado." );
+      return;
     }
+
+    logger.info( { email }, "🌱 Criando administrador inicial..." );
+
+    const response = await auth.api.signUpEmail({
+      body: {
+        name: "Administrador do Sistema",
+        email,
+        password,
+        age: 99,
+        role: UserRole.ADMIN,
+      },
+    });
+
+    if (response?.user) {
+      logger.info( { email }, "✅ Administrador inicial criado." );
+      return;
+    }
+
+    logger.error( { email }, "❌ O Better Auth não conseguiu criar o administrador inicial." );
   } catch (error) {
-    logger.error({ err: error }, "❌ Erro fatal ao criar o administrador padrão.");
+    logger.error( { err: error, email }, "❌ Erro ao criar o administrador inicial." );
   }
 };
