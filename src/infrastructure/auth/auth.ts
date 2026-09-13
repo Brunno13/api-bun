@@ -39,13 +39,11 @@ export const auth = betterAuth({
 });
 
 type SignUpEmailInput = Parameters<typeof auth.api.signUpEmail>[0];
-
-type SignUpEmailResult = Awaited<ReturnType<typeof auth.api.signUpEmail>>;
+type AdminBootstrapSignUpResult = { user?: unknown; } | null;
 
 export type AdminBootstrapDependencies = {
   adminExists: (email: string) => Promise<boolean>;
-
-  signUpEmail: ( input: SignUpEmailInput ) => Promise<SignUpEmailResult>;
+  signUpEmail: ( input: SignUpEmailInput ) => Promise<AdminBootstrapSignUpResult>;
 };
 
 export const runAdminBootstrap = async (
