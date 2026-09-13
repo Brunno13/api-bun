@@ -42,7 +42,7 @@ describe("DrizzleUserRepository Integration Tests", () => {
     const userData = { name: "John Doe", email: "john@test.com", age: 30 };
 
     // Act
-    const result = await repository.create(userData as any);
+    const result = await repository.create(userData);
 
     // Assert
     expect(result).not.toBeNull();
@@ -55,7 +55,7 @@ describe("DrizzleUserRepository Integration Tests", () => {
   it("should find a user by their unique ID", async () => {
     // Arrange
     const userData = { name: "Jane Doe", email: "jane@test.com", age: 25, role: UserRole.ADMIN };
-    const created = await repository.create(userData as any);
+    const created = await repository.create(userData);
     const id = created!.id!;
 
     // Act
@@ -79,7 +79,7 @@ describe("DrizzleUserRepository Integration Tests", () => {
   it("should find a user by their email address", async () => {
     // Arrange
     const email = "find@test.com";
-    await repository.create({ name: "Find Me", email, age: 20 } as any);
+    await repository.create({ name: "Find Me", email, age: 20 });
 
     // Act
     const found = await repository.findByEmail(email);
@@ -92,7 +92,7 @@ describe("DrizzleUserRepository Integration Tests", () => {
   it("should update an existing user's information by email", async () => {
     // Arrange
     const email = "update@test.com";
-    await repository.create({ name: "Old Name", email, age: 20 } as any);
+    await repository.create({ name: "Old Name", email, age: 20 });
 
     // Act
     const updated = await repository.updateByEmail(email, { name: "New Name" });
@@ -114,7 +114,7 @@ describe("DrizzleUserRepository Integration Tests", () => {
   it("should delete a user by email and return true", async () => {
     // Arrange
     const email = "delete@test.com";
-    await repository.create({ name: "Delete Me", email, age: 10 } as any);
+    await repository.create({ name: "Delete Me", email, age: 10 });
 
     // Act
     const success = await repository.deleteByEmail(email);
@@ -135,8 +135,8 @@ describe("DrizzleUserRepository Integration Tests", () => {
 
   it("should retrieve all users from the database", async () => {
     // Arrange
-    await repository.create({ name: "User 1", email: "u1@test.com", age: 20 } as any);
-    await repository.create({ name: "User 2", email: "u2@test.com", age: 30 } as any);
+    await repository.create({ name: "User 1", email: "u1@test.com", age: 20 });
+    await repository.create({ name: "User 2", email: "u2@test.com", age: 30 });
 
     // Act
     const all = await repository.findAll();

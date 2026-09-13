@@ -12,13 +12,19 @@ import { createApp } from "../routes";
 const BASE_URL = "http://localhost";
 
 describe("Presentation Layer - User Routes (RBAC)", () => {
-  let testApp: any;
+  type TestApp = Awaited<ReturnType<typeof createApp>>;
+  let testApp: TestApp;
+  
   let testUserManager: UserManager;
   let testDb: Database;
   let testDbInstance: BunSQLiteDatabase;
 
+  type AuthSession = NonNullable<
+    Awaited<ReturnType<typeof auth.api.getSession>>
+  >;
+
   const mockSessionWithRole = (role: UserRole) => {
-    spyOn(auth.api, "getSession").mockResolvedValue({
+    const session: AuthSession = {
       session: {
         id: "mock-session-123",
         userId: "mock-uuid-999",
@@ -34,13 +40,15 @@ describe("Presentation Layer - User Routes (RBAC)", () => {
         name: "Usuário Teste",
         email: "user@test.com",
         age: 30,
-        role: role,
+        role,
         emailVerified: true,
         createdAt: new Date(),
         updatedAt: new Date(),
         image: null,
       },
-    } as any);
+    };
+
+    spyOn(auth.api, "getSession").mockResolvedValue(session);
   };
 
   beforeEach(async () => {
@@ -135,7 +143,7 @@ describe("Presentation Layer - User Routes (RBAC)", () => {
       age: 20, 
       email: "update@test.com", 
       role: UserRole.VIEWER 
-    } as any);
+    });
 
     const response = await testApp.handle(
       new Request(`${BASE_URL}/users/update@test.com`, {
@@ -171,7 +179,7 @@ describe("Presentation Layer - User Routes (RBAC)", () => {
       age: 20, 
       email: "delete@test.com", 
       role: UserRole.VIEWER 
-    } as any);
+    });
 
     const response = await testApp.handle(
       new Request(`${BASE_URL}/users/delete@test.com`, { method: "DELETE" }),
@@ -190,7 +198,7 @@ describe("Presentation Layer - User Routes (RBAC)", () => {
       age: 20, 
       email: "delete@test.com", 
       role: UserRole.VIEWER 
-    } as any);
+    });
 
     const response = await testApp.handle(
       new Request(`${BASE_URL}/users/delete@test.com`, { method: "DELETE" }),

@@ -1,5 +1,5 @@
 import { UserRepository } from "../domain/userRepository";
-import { User } from "../domain/user";
+import { CreateUserInput, User } from "../domain/user";
 import { AppError } from "../errors/appError";
 import { ErrorCode } from "../messages/messages";
 
@@ -10,7 +10,7 @@ export class UserManager {
     this.userRepository = deps.userRepository;
   }
 
-  async create(data: Omit<User, "id">): Promise<User | null> {
+  async create(data: CreateUserInput): Promise<User | null> {
     return this.userRepository.create(data);
   }
 

@@ -1,9 +1,11 @@
 import { eq } from "drizzle-orm";
 import { user } from "../db/schema";
 import { UserRepository } from "../../core/domain/userRepository";
-import { User } from "../../core/domain/user";
+import { CreateUserInput, User } from "../../core/domain/user";
 import { BunSQLiteDatabase } from "drizzle-orm/bun-sqlite";
 import { UserRole } from "../../core/messages/messages";
+
+type UserRow = typeof user.$inferSelect;
 
 export class DrizzleUserRepository implements UserRepository {
   private db: BunSQLiteDatabase;
@@ -12,7 +14,7 @@ export class DrizzleUserRepository implements UserRepository {
     this.db = deps.db;
   }
 
-  private mapToDomain(data: any): User | null {
+  private mapToDomain(data: UserRow | null | undefined): User | null {
     if (!data) return null;
     return {
       id: data.id,
@@ -23,7 +25,7 @@ export class DrizzleUserRepository implements UserRepository {
     };
   }
 
-  async create(data: Omit<User, "id">): Promise<User | null> {
+  async create(data: CreateUserInput): Promise<User | null> {
     const now = new Date();
 
     const result = await this.db

@@ -1,7 +1,7 @@
-import { User } from "./user";
+import { CreateUserInput, User } from "./user";
 
 export interface UserRepository {
-  create(data: Omit<User, "id">): Promise<User | null>;
+  create(data: CreateUserInput): Promise<User | null>;
   findById(id: string): Promise<User | null>;
   findByEmail(email: string): Promise<User | null>;
   updateByEmail(email: string, data: Partial<Omit<User, "id">>): Promise<User | null>;

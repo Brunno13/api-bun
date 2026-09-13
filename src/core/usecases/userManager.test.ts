@@ -2,14 +2,16 @@ import { describe, it, expect, beforeEach, mock } from "bun:test";
 import { UserManager } from "./userManager";
 import { AppError } from "../errors/appError";
 import { ErrorCode, HttpStatus, UserRole } from "../messages/messages";
+import type { UserRepository } from "../domain/userRepository";
+import type { User } from "../domain/user";
 
 describe("UserManager Unit Tests", () => {
   let userManager: UserManager;
-  let mockUserRepository: any;
+  let mockUserRepository: MockUserRepository;
 
   const MOCK_USER_ID = "mock-uuid-1234-5678";
 
-  const mockUser = {
+  const mockUser: User = {
     id: MOCK_USER_ID,
     name: "Test",
     age: 30,
@@ -17,21 +19,47 @@ describe("UserManager Unit Tests", () => {
     role: UserRole.VIEWER,
   };
 
+  const createMockUserRepository = () => ({
+    create: mock(
+      async (): Promise<User | null> => mockUser,
+    ),
+
+    findById: mock(
+      async (): Promise<User | null> => mockUser,
+    ),
+
+    findByEmail: mock(
+      async (): Promise<User | null> => mockUser,
+    ),
+
+    findAll: mock(
+      async (): Promise<User[]> => [mockUser],
+    ),
+
+    updateByEmail: mock(
+      async (): Promise<User | null> => mockUser,
+    ),
+
+    deleteByEmail: mock(
+      async (): Promise<boolean> => true,
+    ),
+  }) satisfies UserRepository;
+
+  type MockUserRepository =
+    ReturnType<typeof createMockUserRepository>;
+
   beforeEach(() => {
-    mockUserRepository = {
-      create: mock().mockResolvedValue(mockUser),
-      findById: mock().mockResolvedValue(mockUser),
-      findAll: mock().mockResolvedValue([mockUser]),
-      updateByEmail: mock().mockResolvedValue(mockUser),
-      deleteByEmail: mock().mockResolvedValue(true),
-    };
-    userManager = new UserManager({ userRepository: mockUserRepository });
+    mockUserRepository = createMockUserRepository();
+
+    userManager = new UserManager({
+      userRepository: mockUserRepository,
+    });
   });
 
   describe("create", () => {
     it("should call repository.create and return the created user", async () => {
       const data = { name: "Test", age: 30, email: "test@test.com" };
-      const result = await userManager.create(data as any);
+      const result = await userManager.create(data);
 
       expect(result).toEqual(mockUser);
       expect(mockUserRepository.create).toHaveBeenCalledWith(data);
@@ -63,7 +91,7 @@ describe("UserManager Unit Tests", () => {
       const data = { age: 35 };
       mockUserRepository.updateByEmail.mockResolvedValue({ ...mockUser, age: 35 });
 
-      const result = await userManager.updateByEmail(email, data as any);
+      const result = await userManager.updateByEmail(email, data);
 
       expect(result.age).toBe(35);
       expect(mockUserRepository.updateByEmail).toHaveBeenCalledWith(email, data);

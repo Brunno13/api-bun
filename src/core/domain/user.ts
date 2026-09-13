@@ -7,3 +7,8 @@ export interface User {
   age: number;
   role: UserRole;
 }
+
+export type CreateUserInput =
+  Omit<User, "id" | "role"> & {
+    role?: UserRole;
+  };

@@ -8,11 +8,17 @@ import type { StorageService } from "../../core/domain/storageService";
 const BASE_URL = "http://localhost";
 
 describe("Presentation Layer - Upload Routes", () => {
-  let testApp: any;
+  type TestApp = Awaited<ReturnType<typeof createApp>>;
+  let testApp: TestApp;
+
   let mockStorageService: StorageService;
 
+  type AuthSession = NonNullable<
+    Awaited<ReturnType<typeof auth.api.getSession>>
+  >;
+
   const mockSessionWithRole = (role: UserRole) => {
-    spyOn(auth.api, "getSession").mockResolvedValue({
+    const session: AuthSession = {
       session: {
         id: "mock-session-123",
         userId: "mock-uuid-999",
@@ -28,13 +34,15 @@ describe("Presentation Layer - Upload Routes", () => {
         name: "Usuário Teste",
         email: "user@test.com",
         age: 30,
-        role: role,
+        role,
         emailVerified: true,
         createdAt: new Date(),
         updatedAt: new Date(),
         image: null,
       },
-    } as any);
+    };
+
+    spyOn(auth.api, "getSession").mockResolvedValue(session);
   };
 
   const mockNoSession = () => {

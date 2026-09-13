@@ -1,7 +1,7 @@
 import { S3Client, PutObjectCommand, GetObjectCommand } from "@aws-sdk/client-s3"; // 🔥 Importe o GetObjectCommand
 import { z } from "zod";
 import type { StorageService } from "../../core/domain/storageService";
-import { MESSAGES, ErrorCode } from "../../core/messages/messages";
+import { ErrorCode } from "../../core/messages/messages";
 import { AppError } from "../../core/errors/appError";
 
 const envSchema = z.object({
@@ -60,7 +60,7 @@ export class GarageStorageService implements StorageService {
       await this.s3Client.send(command);
 
       return `${this.publicUrl}/${uniqueFileName}`;
-    } catch (error) {
+    } catch {
       throw new AppError(ErrorCode.UPLOAD_FAILED);
     }
   }
@@ -84,7 +84,7 @@ export class GarageStorageService implements StorageService {
         buffer: Buffer.from(byteArray),
         contentType: response.ContentType || "image/jpeg",
       };
-    } catch (error) {
+    } catch {
       throw new AppError(ErrorCode.ROUTE_NOT_FOUND);
     }
   }

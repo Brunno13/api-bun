@@ -46,7 +46,7 @@ export const uploadRoutes = (di: AwilixContainer) => {
       "/avatar",
       async ({ body: { avatarBase64, fileName, mimeType } }) => {
         
-        if (!ALLOWED_IMAGE_TYPES.includes(mimeType as any)) {
+        if (!ALLOWED_IMAGE_TYPES.some((allowedType) => allowedType === mimeType)) {
           throw new AppError(ErrorCode.INVALID_DATA);
         }
 

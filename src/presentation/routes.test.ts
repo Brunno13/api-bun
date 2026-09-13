@@ -5,7 +5,8 @@ import { createContainer, asValue } from "awilix";
 const BASE_URL = "http://localhost";
 
 describe("Presentation Layer - Global API Routes", () => {
-  let testApp: any;
+  type TestApp = Awaited<ReturnType<typeof createApp>>;
+  let testApp: TestApp;
 
   beforeEach(async () => {
     const mockContainer = createContainer();

@@ -18,14 +18,62 @@ const traceExporter = new OTLPTraceExporter({
   url: exporterUrl,
 });
 
+type ElysiaOpenApiOptions = NonNullable<
+  Parameters<typeof openapi>[0]
+>;
+
+type ElysiaDocumentation = NonNullable<
+  ElysiaOpenApiOptions["documentation"]
+>;
+
+type ElysiaComponents = NonNullable<
+  ElysiaDocumentation["components"]
+>;
+
+type ElysiaPaths = NonNullable<
+  ElysiaDocumentation["paths"]
+>;
+
+type AppErrorLike = {
+  isAppError?: boolean;
+  name?: string;
+  statusCode?: number;
+  code?: string;
+  message: string;
+};
+
+const isAppErrorLike = (value: unknown): value is AppErrorLike => {
+  if (typeof value !== "object" || value === null) {
+    return false;
+  }
+
+  const candidate = value as Record<string, unknown>;
+
+  return (
+    typeof candidate.message === "string" &&
+    (
+      candidate.isAppError === true ||
+      candidate.name === "AppError"
+    ) &&
+    (
+      candidate.statusCode === undefined ||
+      typeof candidate.statusCode === "number"
+    ) &&
+    (
+      candidate.code === undefined ||
+      typeof candidate.code === "string"
+    )
+  );
+};
+
 export const createApp = async (di: AwilixContainer) => {
-  let authPaths: any = {};
-  let authComponents: any = {};
+  const authPaths: Record<string, unknown> = {};
+  let authComponents: unknown = {};
 
   try {
     const authSchema = await auth.api.generateOpenAPISchema();
     if (authSchema) {
-      authComponents = authSchema.components || {};
+      authComponents = authSchema.components ?? {};
       if (authSchema.paths) {
         for (const [path, config] of Object.entries(authSchema.paths)) {
           authPaths[`/api/auth${path}`] = config;
@@ -34,7 +82,10 @@ export const createApp = async (di: AwilixContainer) => {
     }
   } catch (error) {
     if (process.env.NODE_ENV !== AppEnv.TEST) {
-      logger.warn({ err: error }, MESSAGES.SYSTEM.OPENAPI_GENERATION_FAILED);
+      logger.warn(
+        { err: error },
+        MESSAGES.SYSTEM.OPENAPI_GENERATION_FAILED,
+      );
     }
   }
 
@@ -48,8 +99,8 @@ export const createApp = async (di: AwilixContainer) => {
             version: MESSAGES.OPENAPI.VERSION,
             description: MESSAGES.OPENAPI.DESCRIPTION,
           },
-          components: authComponents as any,
-          paths: authPaths,
+          components: authComponents as ElysiaComponents,
+          paths: authPaths as unknown as ElysiaPaths,
         },
       }),
     )
@@ -66,7 +117,7 @@ export const createApp = async (di: AwilixContainer) => {
     .get("/", () => MESSAGES.SYSTEM.API_ONLINE)
     .get("/favicon.ico", () => new Response(null, { status: 204 }))
     .onError(({ code, error, set, request }) => {
-      const err = error as any;
+      const caughtError: unknown = error;
       if (code === FrameworkErrorCode.NOT_FOUND || code === HttpStatus.NOT_FOUND) {
         set.status = HttpStatus.NOT_FOUND;
         return {
@@ -76,12 +127,13 @@ export const createApp = async (di: AwilixContainer) => {
         };
       }
 
-      if (error instanceof AppError || err?.isAppError || err?.name === "AppError") {
-        set.status = err.statusCode || HttpStatus.BAD_REQUEST;
+      if (caughtError instanceof AppError || isAppErrorLike(caughtError)) {
+        set.status = caughtError.statusCode ?? HttpStatus.BAD_REQUEST;
+
         return {
           success: false,
-          code: err.code || "UNKNOWN_APP_ERROR",
-          message: err.message,
+          code: caughtError.code ?? ErrorCode.UNKNOWN_APP_ERROR,
+          message: caughtError.message,
         };
       }
 
