@@ -225,4 +225,14 @@ describe("Presentation Layer - User Routes (RBAC)", () => {
 
     expect(response.status).toBe(HttpStatus.FORBIDDEN);
   });
+
+  it("GET /users should return 401 UNAUTHORIZED when there is no session", async () => {
+    spyOn(auth.api, "getSession").mockResolvedValue(null);
+
+    const response = await testApp.handle(
+      new Request(`${BASE_URL}/users/`),
+    );
+
+    expect(response.status).toBe(HttpStatus.UNAUTHORIZED);
+  });
 });

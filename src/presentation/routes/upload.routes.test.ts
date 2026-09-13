@@ -173,6 +173,36 @@ let mockStorageService: MockStorageService;
     expect(mockStorageService.upload).toHaveBeenCalledTimes(0);
   });
 
+  it("POST /api/avatar deve retornar erro padronizado para body inválido", async () => {
+    const payload = {
+      avatarBase64: "base64-string",
+      fileName: "avatar.jpg",
+      // mimeType ausente propositalmente para provocar VALIDATION
+    };
+
+    const response = await testApp.handle(
+      new Request(`${BASE_URL}/api/avatar`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(payload),
+      }),
+    );
+
+    expect(response.status).toBe(HttpStatus.UNPROCESSABLE_ENTITY);
+
+    const body = await readJsonObject(response);
+
+    expect(body.success).toBe(false);
+    expect(body.code).toBe(ErrorCode.INVALID_DATA);
+    expect(body.message).toBe(
+      MESSAGES.ERROR[ErrorCode.INVALID_DATA].message,
+    );
+
+    expect(typeof body.details).toBe("string");
+
+    expect(mockStorageService.upload).toHaveBeenCalledTimes(0);
+  });
+
   it("POST /api/avatar deve propagar erro 500 se o StorageService falhar", async () => {
     mockStorageService.upload.mockRejectedValue( new Error("Conexão recusada"));
 

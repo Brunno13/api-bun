@@ -5,7 +5,9 @@
     "test": "NODE_ENV=test bun test",
     "typecheck": "tsc --noEmit",
     "dev": "bun run --watch src/index.ts",
-    "lint": "eslint src"
+    "lint": "eslint src",
+    "test:coverage": "NODE_ENV=test bun test --coverage",
+    "coverage:check": "bun run test:coverage && bun run scripts/check-coverage.ts"
   },
   "dependencies": {
     "@aws-sdk/client-s3": "^3.1075.0",
