@@ -10,7 +10,7 @@ describe("DrizzleUserRepository Integration Tests", () => {
   let testDbInstance: BunSQLiteDatabase;
   let repository: DrizzleUserRepository;
 
-  beforeEach(async () => {
+  beforeEach(() => {
     // Setup in-memory database for integration testing
     testDb = new Database(":memory:");
     testDbInstance = drizzle(testDb);

@@ -12,7 +12,7 @@ describe("Presentation Layer - Global API Routes", () => {
     const mockContainer = createContainer();
 
     mockContainer.register({
-      storageService: asValue({ upload: async () => "http://mock-url.com" }),
+      storageService: asValue({ upload: () => Promise.resolve("http://mock-url.com") }),
       userManager: asValue({}),
     });
 

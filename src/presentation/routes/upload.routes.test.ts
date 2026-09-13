@@ -7,11 +7,47 @@ import type { StorageService } from "../../core/domain/storageService";
 
 const BASE_URL = "http://localhost";
 
+const isRecord = (
+  value: unknown,
+): value is Record<string, unknown> =>
+  typeof value === "object" &&
+  value !== null &&
+  !Array.isArray(value);
+
+const readJsonObject = async (
+  response: Response,
+): Promise<Record<string, unknown>> => {
+  const value: unknown = await response.json();
+
+  if (!isRecord(value)) {
+    throw new Error("Expected response body to be a JSON object");
+  }
+
+  return value;
+};
+
 describe("Presentation Layer - Upload Routes", () => {
   type TestApp = Awaited<ReturnType<typeof createApp>>;
   let testApp: TestApp;
 
-  let mockStorageService: StorageService;
+  const createMockStorageService = () =>
+  ({
+    upload: mock(() =>
+      Promise.resolve("http://localhost:3902/avatares/fake-uuid.jpg"),
+    ),
+
+    getFile: mock(() =>
+      Promise.resolve({
+        buffer: Buffer.from("fake-image-data"),
+        contentType: "image/jpeg",
+      }),
+    ),
+  }) satisfies StorageService;
+
+type MockStorageService =
+  ReturnType<typeof createMockStorageService>;
+
+let mockStorageService: MockStorageService;
 
   type AuthSession = NonNullable<
     Awaited<ReturnType<typeof auth.api.getSession>>
@@ -52,13 +88,7 @@ describe("Presentation Layer - Upload Routes", () => {
   beforeEach(async () => {
     mockSessionWithRole(UserRole.VIEWER);
 
-    mockStorageService = {
-      upload: mock().mockResolvedValue("http://localhost:3902/avatares/fake-uuid.jpg"),
-      getFile: mock().mockResolvedValue({
-        buffer: Buffer.from("fake-image-data"),
-        contentType: "image/jpeg"
-      }),
-    };
+    mockStorageService = createMockStorageService();
 
     const testContainer = createContainer();
     testContainer.register({
@@ -90,7 +120,7 @@ describe("Presentation Layer - Upload Routes", () => {
     );
 
     expect(response.status).toBe(HttpStatus.OK);
-    const body = await response.json();
+    const body = await readJsonObject(response);
     
     expect(body.success).toBe(true);
     expect(body.message).toBe(MESSAGES.SUCCESS.AVATAR_UPLOADED);
@@ -137,14 +167,14 @@ describe("Presentation Layer - Upload Routes", () => {
 
     expect(response.status).toBe(HttpStatus.UNPROCESSABLE_ENTITY);
     
-    const body = await response.json();
+    const body = await readJsonObject(response);
     expect(body.success).toBe(false);
     expect(body.code).toBe(ErrorCode.INVALID_DATA);
     expect(mockStorageService.upload).toHaveBeenCalledTimes(0);
   });
 
   it("POST /api/avatar deve propagar erro 500 se o StorageService falhar", async () => {
-    mockStorageService.upload = mock().mockRejectedValue(new Error("Conexão recusada"));
+    mockStorageService.upload.mockRejectedValue( new Error("Conexão recusada"));
 
     const payload = {
       avatarBase64: "base64-string",
@@ -161,7 +191,7 @@ describe("Presentation Layer - Upload Routes", () => {
     );
 
     expect(response.status).toBe(HttpStatus.INTERNAL_SERVER_ERROR);
-    const body = await response.json();
+    const body = await readJsonObject(response);
     expect(body.success).toBe(false);
     expect(body.code).toBe(ErrorCode.INTERNAL_SERVER_ERROR);
     expect(mockStorageService.upload).toHaveBeenCalledTimes(1);

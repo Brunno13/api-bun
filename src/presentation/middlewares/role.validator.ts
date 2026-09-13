@@ -6,13 +6,12 @@ type RoleAwareUser = {
 };
 
 export const requireRoles = (...allowedRoles: UserRole[]) => {
+  const allowedRoleValues: readonly string[] = allowedRoles;
+
   return ({ user }: { user?: RoleAwareUser | null }) => {
     const role = user?.role;
 
-    if (
-      !role ||
-      !allowedRoles.some((allowedRole) => allowedRole === role)
-    ) {
+    if (!role || !allowedRoleValues.includes(role)) {
       throw new AppError(ErrorCode.FORBIDDEN);
     }
   };

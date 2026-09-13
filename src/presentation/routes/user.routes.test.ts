@@ -11,6 +11,25 @@ import { createApp } from "../routes";
 
 const BASE_URL = "http://localhost";
 
+const isRecord = (
+  value: unknown,
+): value is Record<string, unknown> =>
+  typeof value === "object" &&
+  value !== null &&
+  !Array.isArray(value);
+
+const readJsonObject = async (
+  response: Response,
+): Promise<Record<string, unknown>> => {
+  const value: unknown = await response.json();
+
+  if (!isRecord(value)) {
+    throw new Error("Expected response body to be a JSON object");
+  }
+
+  return value;
+};
+
 describe("Presentation Layer - User Routes (RBAC)", () => {
   type TestApp = Awaited<ReturnType<typeof createApp>>;
   let testApp: TestApp;
@@ -78,7 +97,7 @@ describe("Presentation Layer - User Routes (RBAC)", () => {
     const testContainer = createContainer();
     testContainer.register({
       userManager: asValue(testUserManager),
-      storageService: asValue({ upload: async () => "http://mock-url.com" }),
+      storageService: asValue({ upload: () => Promise.resolve("http://mock-url.com") }),
     });
 
     testApp = await createApp(testContainer);
@@ -105,7 +124,7 @@ describe("Presentation Layer - User Routes (RBAC)", () => {
     );
 
     expect(response.status).toBe(HttpStatus.OK);
-    const body = await response.json();
+    const body = await readJsonObject(response);
     expect(body).toHaveProperty("id");
   });
 
@@ -186,7 +205,7 @@ describe("Presentation Layer - User Routes (RBAC)", () => {
     );
 
     expect(response.status).toBe(HttpStatus.OK);
-    const body = await response.json();
+    const body = await readJsonObject(response);
     expect(body.success).toBe(true);
   });
 

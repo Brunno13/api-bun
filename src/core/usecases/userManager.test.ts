@@ -21,27 +21,27 @@ describe("UserManager Unit Tests", () => {
 
   const createMockUserRepository = () => ({
     create: mock(
-      async (): Promise<User | null> => mockUser,
+      (): Promise<User | null> => Promise.resolve(mockUser),
     ),
 
     findById: mock(
-      async (): Promise<User | null> => mockUser,
+      (): Promise<User | null> => Promise.resolve(mockUser),
     ),
 
     findByEmail: mock(
-      async (): Promise<User | null> => mockUser,
+      (): Promise<User | null> => Promise.resolve(mockUser),
     ),
 
     findAll: mock(
-      async (): Promise<User[]> => [mockUser],
+      (): Promise<User[]> => Promise.resolve([mockUser]),
     ),
 
     updateByEmail: mock(
-      async (): Promise<User | null> => mockUser,
+      (): Promise<User | null> => Promise.resolve(mockUser),
     ),
 
     deleteByEmail: mock(
-      async (): Promise<boolean> => true,
+      (): Promise<boolean> => Promise.resolve(true),
     ),
   }) satisfies UserRepository;
 
