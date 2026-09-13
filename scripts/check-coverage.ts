@@ -1,3 +1,5 @@
+export {};
+
 const coverageFile =
   process.env.COVERAGE_LCOV_PATH ?? "coverage/lcov.info";
 
