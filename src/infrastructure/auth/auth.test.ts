@@ -107,4 +107,26 @@ describe("Admin bootstrap", () => {
     expect(adminExists).toHaveBeenCalledTimes(1);
     expect(signUpEmail).toHaveBeenCalledTimes(1);
   });
+
+  it("should handle sign-up response without user", async () => {
+    const adminExists = mock(() => Promise.resolve(false));
+
+    const signUpEmail = mock(() =>
+        Promise.resolve({}),
+    );
+
+    const dependencies = {
+        adminExists,
+        signUpEmail,
+    } satisfies AdminBootstrapDependencies;
+
+    await runAdminBootstrap(
+        "admin@example.com",
+        "strong-password",
+        dependencies,
+    );
+
+    expect(adminExists).toHaveBeenCalledTimes(1);
+    expect(signUpEmail).toHaveBeenCalledTimes(1);
+  });
 });
