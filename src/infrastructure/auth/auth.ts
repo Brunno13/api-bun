@@ -38,26 +38,37 @@ export const auth = betterAuth({
   ]
 });
 
-export const seedAdmin = async () => {
-  const email = config.BOOTSTRAP_ADMIN_EMAIL;
-  const password = config.BOOTSTRAP_ADMIN_PASSWORD;
+type SignUpEmailInput = Parameters<typeof auth.api.signUpEmail>[0];
 
+type SignUpEmailResult = Awaited<ReturnType<typeof auth.api.signUpEmail>>;
+
+export type AdminBootstrapDependencies = {
+  adminExists: (email: string) => Promise<boolean>;
+
+  signUpEmail: ( input: SignUpEmailInput ) => Promise<SignUpEmailResult>;
+};
+
+export const runAdminBootstrap = async (
+  email: string | undefined,
+  password: string | undefined,
+  dependencies: AdminBootstrapDependencies,
+) => {
   if (!email || !password) {
     logger.info( "Bootstrap do administrador não configurado; seed ignorado." );
     return;
   }
 
   try {
-    const existingAdmin = await db.select().from(schema.user).where(eq(schema.user.email, email));
+    const exists = await dependencies.adminExists(email);
 
-    if (existingAdmin.length > 0) {
+    if (exists) {
       logger.info( { email }, "Administrador de bootstrap já existe; seed ignorado." );
       return;
     }
 
     logger.info( { email }, "🌱 Criando administrador inicial..." );
 
-    const response = await auth.api.signUpEmail({
+    const response = await dependencies.signUpEmail({
       body: {
         name: "Administrador do Sistema",
         email,
@@ -67,7 +78,7 @@ export const seedAdmin = async () => {
       },
     });
 
-    if (response?.user) {
+    if (response?.user) { 
       logger.info( { email }, "✅ Administrador inicial criado." );
       return;
     }
@@ -76,4 +87,23 @@ export const seedAdmin = async () => {
   } catch (error) {
     logger.error( { err: error, email }, "❌ Erro ao criar o administrador inicial." );
   }
+};
+
+export const seedAdmin = async () => {
+  await runAdminBootstrap(
+    config.BOOTSTRAP_ADMIN_EMAIL,
+    config.BOOTSTRAP_ADMIN_PASSWORD,
+    {
+      adminExists: async (email) => {
+        const existingAdmin = await db
+          .select()
+          .from(schema.user)
+          .where(eq(schema.user.email, email));
+
+        return existingAdmin.length > 0;
+      },
+
+      signUpEmail: async (input) => auth.api.signUpEmail(input),
+    },
+  );
 };
