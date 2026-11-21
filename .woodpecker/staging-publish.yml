@@ -112,11 +112,11 @@ steps:
           *) echo "ABN3_SUMMARY=FAIL (invalid image reference)" >&2; exit 1 ;;
         esac
 
-        IMAGE_REF="${PORTAINER_IMAGE%@*}"
-        IMAGE_TAG="${IMAGE_REF##*:}"
-        IMAGE_DIGEST="${PORTAINER_IMAGE##*@}"
-        DIGEST_HEX="${IMAGE_DIGEST#sha256:}"
-        test "${#DIGEST_HEX}" -eq 64
+        IMAGE_REF="$${PORTAINER_IMAGE%@*}"
+        IMAGE_TAG="$${IMAGE_REF##*:}"
+        IMAGE_DIGEST="$${PORTAINER_IMAGE##*@}"
+        DIGEST_HEX="$${IMAGE_DIGEST#sha256:}"
+        test "$${#DIGEST_HEX}" -eq 64
         printf '%s' "$DIGEST_HEX" | grep -Eq '^[0-9a-f]{64}$'
 
         echo
