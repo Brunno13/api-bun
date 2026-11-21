@@ -64,4 +64,15 @@ describe("Presentation Layer - Global API Routes", () => {
       MESSAGES.ERROR[ErrorCode.ROUTE_NOT_FOUND].message,
     );
   });
+
+  it("GET /api/auth/get-session deve retornar sessão nula sem autenticação", async () => {
+    const response = await testApp.handle(
+      new Request("http://localhost:3000/api/auth/get-session", {
+        method: "GET",
+      }),
+    );
+
+    expect(response.status).toBe(200);
+    expect(await response.json()).toBeNull();
+  });
 });
