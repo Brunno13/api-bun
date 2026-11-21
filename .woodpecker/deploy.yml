@@ -34,7 +34,7 @@ steps:
           -X POST \
           "https://gotify.brunnoserver.duckdns.org/message?token=$GOTIFY_TOKEN" \
           -F "title=WoodpeckerCI" \
-          -F "message=WoodpeckerCI · Api-bun · Staging pipeline started · $${TIMESTAMP}" \
+          -F "message=WoodpeckerCI · Api-bun · Staging image build/publish started · $${TIMESTAMP}" \
           -F "priority=5" \
           || true
 
@@ -75,10 +75,13 @@ steps:
     image: oven/bun:alpine
     commands:
       - echo "Instalando dependências para os testes..."
-      - bun install
-
-      - echo "Executando a suíte de testes..."
-      - bun test
+      - bun install --frozen-lockfile
+      - echo "Validando TypeScript..."
+      - bun run --bun typecheck
+      - echo "Executando ESLint..."
+      - bun run --bun lint
+      - echo "Executando a suíte de testes com cobertura e quality gate..."
+      - bun run --bun coverage:check
 
   - name: build-executaveis
     image: oven/bun:alpine
@@ -116,66 +119,62 @@ steps:
       - echo "Atualizando a imagem Docker api-bun:latest..."
       - docker build -t api-bun:latest .
 
+    when:
+      - event: tag
   # =========================================================
   # FASE 2: STAGING
   # =========================================================
 
-  - name: deploy-staging
+  - name: publish-staging-image
     image: docker:cli
-
     volumes:
       - /var/run/docker.sock:/var/run/docker.sock
-
     environment:
-      CONTAINER_NAME: api-bun-staging
-
-      APP_PORT:
-        from_secret: staging_app_port
-
-      HOST_DATA_PATH:
-        from_secret: staging_host_data_path
-
-      BETTER_AUTH_URL:
-        from_secret: staging_better_auth_url
-
-      BETTER_AUTH_SECRET:
-        from_secret: staging_better_auth_secret
-
-      OTEL_EXPORTER_URL:
-        from_secret: staging_otel_exporter_url
-
-      GARAGE_S3_ENDPOINT:
-        from_secret: staging_garage_s3_endpoint
-
-      GARAGE_S3_ACCESS_KEY_ID:
-        from_secret: staging_garage_s3_access_key_id
-
-      GARAGE_S3_SECRET_ACCESS_KEY:
-        from_secret: staging_garage_s3_secret_access_key
-
-      GARAGE_S3_BUCKET_NAME:
-        from_secret: staging_garage_s3_bucket_name
-
-      GARAGE_S3_PUBLIC_URL:
-        from_secret: staging_garage_s3_public_url
-
+      GITEA_REGISTRY_TOKEN:
+        from_secret: gitea_registry_token
     commands:
       - |
         set -eu
 
-        echo "Preparando permissões do diretório persistente de Homologação..."
+        test "$CI_REPO_OWNER/$CI_REPO_NAME" = "brunno/api-bun"
+        test -n "$CI_COMMIT_SHA"
+        test -n "$GITEA_REGISTRY_TOKEN"
 
-        test -n "$HOST_DATA_PATH"
+        SHORT_SHA="$(printf '%s' "$CI_COMMIT_SHA" | cut -c 1-12)"
+        IMAGE_REPO="gitea.brunnoserver.duckdns.org/brunno/api-bun"
+        IMAGE="$IMAGE_REPO:staging-$SHORT_SHA"
 
-        docker run --rm \
-          -v "$HOST_DATA_PATH:/data" \
-          alpine:3.23 \
-          chown -R 1000:1000 /data
+        export DOCKER_CONFIG="$(mktemp -d)"
+        PUSH_LOG="$(mktemp)"
+        trap 'rm -f "$PUSH_LOG"; rm -rf "$DOCKER_CONFIG"' EXIT
 
-        echo "Subindo o ambiente de Homologação via Docker Compose..."
+        printf '%s' "$GITEA_REGISTRY_TOKEN" | docker login \
+          gitea.brunnoserver.duckdns.org \
+          --username brunno \
+          --password-stdin
+        unset GITEA_REGISTRY_TOKEN
 
-        docker compose -p api-bun-staging up -d
+        echo "Construindo imagem Docker ARM64 de staging..."
+        echo "BUILD_IMAGE=$IMAGE"
+        docker build --platform linux/arm64 -t "$IMAGE" .
+        echo "Publicando imagem de staging no Gitea Registry..."
+        if ! docker push "$IMAGE" > "$PUSH_LOG" 2>&1; then
+          cat "$PUSH_LOG"
+          exit 1
+        fi
+        cat "$PUSH_LOG"
 
+        DIGEST="$(sed -n 's/.*digest: \(sha256:[0-9a-f]*\).*/\1/p' "$PUSH_LOG" | tail -n 1)"
+        case "$DIGEST" in
+          sha256:*) ;;
+          *) echo "ERROR: registry did not provide an OCI digest"; exit 1 ;;
+        esac
+        test "$(printf '%s' "$DIGEST" | wc -c)" -eq 71
+
+        echo "STAGING_IMAGE_TAG=$IMAGE"
+        echo "STAGING_IMAGE_DIGEST=$IMAGE_REPO@$DIGEST"
+        echo "PORTAINER_IMAGE=$IMAGE@$DIGEST"
+        echo "DEPLOY_STATUS=PENDING_MANUAL_PORTAINER"
     when:
       - event: push
         branch: main
@@ -809,7 +808,7 @@ steps:
           -X POST \
           "https://gotify.brunnoserver.duckdns.org/message?token=$GOTIFY_TOKEN" \
           -F "title=WoodpeckerCI" \
-          -F "message=WoodpeckerCI · Api-bun · Staging pipeline finished successfully · $${TIMESTAMP}" \
+          -F "message=WoodpeckerCI · Api-bun · Staging image published; Portainer deployment pending · $${TIMESTAMP}" \
           -F "priority=5" \
           || true
 
@@ -836,7 +835,7 @@ steps:
           -X POST \
           "https://gotify.brunnoserver.duckdns.org/message?token=$GOTIFY_TOKEN" \
           -F "title=WoodpeckerCI" \
-          -F "message=WoodpeckerCI · Api-bun · Staging pipeline failed · $${TIMESTAMP}" \
+          -F "message=WoodpeckerCI · Api-bun · Staging image build/publish failed · $${TIMESTAMP}" \
           -F "priority=8" \
           || true
 
