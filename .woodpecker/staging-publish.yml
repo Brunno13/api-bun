@@ -1,0 +1,187 @@
+# ABN-3: publish only after the complete VM104 quality/security chain passes.
+when:
+  - event: push
+    branch: main
+
+labels:
+  platform: linux/arm64
+  hostname: opi4pro-worker3
+
+depends_on:
+  - quality-typecheck
+
+clone:
+  git:
+    image: woodpeckerci/plugin-git
+
+steps:
+  - name: notify-start-staging
+    image: curlimages/curl
+
+    environment:
+      GOTIFY_TOKEN:
+        from_secret: gotify_token
+
+    commands:
+      - |
+        TIMESTAMP="$(TZ=UTC3 date '+%d/%m/%Y %H:%M')"
+
+        curl -fsS \
+          --connect-timeout 5 \
+          --max-time 10 \
+          --output /dev/null \
+          -X POST \
+          "https://gotify.brunnoserver.duckdns.org/message?token=$GOTIFY_TOKEN" \
+          -F "title=WoodpeckerCI" \
+          -F "message=WoodpeckerCI · Api-bun · Staging image build/publish started · $${TIMESTAMP}" \
+          -F "priority=5" \
+          || true
+
+    when:
+      - event: push
+        branch: main
+
+  - name: publish-staging-image
+    image: docker:cli
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock
+    environment:
+      GITEA_REGISTRY_TOKEN:
+        from_secret: gitea_registry_token
+    commands:
+      - |
+        set -eu
+
+        test "$CI_REPO_OWNER/$CI_REPO_NAME" = "brunno/api-bun"
+        test -n "$CI_COMMIT_SHA"
+        test -n "$GITEA_REGISTRY_TOKEN"
+
+        SHORT_SHA="$(printf '%s' "$CI_COMMIT_SHA" | cut -c 1-12)"
+        IMAGE_REPO="gitea.brunnoserver.duckdns.org/brunno/api-bun"
+        IMAGE="$IMAGE_REPO:staging-$SHORT_SHA"
+
+        export DOCKER_CONFIG="$(mktemp -d)"
+        PUSH_LOG="$(mktemp)"
+        trap 'rm -f "$PUSH_LOG"; rm -rf "$DOCKER_CONFIG"' EXIT
+
+        printf '%s' "$GITEA_REGISTRY_TOKEN" | docker login \
+          gitea.brunnoserver.duckdns.org \
+          --username brunno \
+          --password-stdin
+        unset GITEA_REGISTRY_TOKEN
+
+        echo "Construindo imagem Docker ARM64 de staging..."
+        echo "BUILD_IMAGE=$IMAGE"
+        docker build --platform linux/arm64 -t "$IMAGE" .
+        echo "Publicando imagem de staging no Gitea Registry..."
+        if ! docker push "$IMAGE" > "$PUSH_LOG" 2>&1; then
+          cat "$PUSH_LOG"
+          exit 1
+        fi
+        cat "$PUSH_LOG"
+
+        DIGEST="$(sed -n 's/.*digest: \(sha256:[0-9a-f]*\).*/\1/p' "$PUSH_LOG" | tail -n 1)"
+        case "$DIGEST" in
+          sha256:*) ;;
+          *) echo "ERROR: registry did not provide an OCI digest"; exit 1 ;;
+        esac
+        test "$(printf '%s' "$DIGEST" | wc -c)" -eq 71
+
+        echo "STAGING_IMAGE_TAG=$IMAGE"
+        echo "STAGING_IMAGE_DIGEST=$IMAGE_REPO@$DIGEST"
+        echo "PORTAINER_IMAGE=$IMAGE@$DIGEST"
+        printf '%s\n' "$IMAGE@$DIGEST" > .abn3-staging-published-ref
+        echo "DEPLOY_STATUS=PENDING_MANUAL_PORTAINER"
+    when:
+      - event: push
+        branch: main
+
+
+  - name: staging-publish-summary
+    image: alpine:3.23
+    commands:
+      - |
+        set -eu
+
+        REF_FILE=".abn3-staging-published-ref"
+        test -s "$REF_FILE"
+        PORTAINER_IMAGE="$(cat "$REF_FILE")"
+
+        case "$PORTAINER_IMAGE" in
+          gitea.brunnoserver.duckdns.org/brunno/api-bun:staging-*@sha256:*) ;;
+          *) echo "ABN3_SUMMARY=FAIL (invalid image reference)" >&2; exit 1 ;;
+        esac
+
+        IMAGE_REF="${PORTAINER_IMAGE%@*}"
+        IMAGE_TAG="${IMAGE_REF##*:}"
+        IMAGE_DIGEST="${PORTAINER_IMAGE##*@}"
+        DIGEST_HEX="${IMAGE_DIGEST#sha256:}"
+        test "${#DIGEST_HEX}" -eq 64
+        printf '%s' "$DIGEST_HEX" | grep -Eq '^[0-9a-f]{64}$'
+
+        echo
+        echo "============================================================"
+        echo "                 API-BUN — STAGING PUBLISH"
+        echo "============================================================"
+        printf 'RESULTADO             %s\n' 'PUBLISHED'
+        printf 'IMAGE_TAG             %s\n' "$IMAGE_TAG"
+        printf 'IMAGE_DIGEST          %s\n' "$IMAGE_DIGEST"
+        printf 'PORTAINER_IMAGE       %s\n' "$PORTAINER_IMAGE"
+        echo
+        echo "DEPLOY_STATUS         PENDING_MANUAL_PORTAINER"
+        echo "============================================================"
+        echo "STAGING_PUBLISH_SUMMARY=PASS"
+
+  - name: notify-success-staging
+    image: curlimages/curl
+
+    environment:
+      GOTIFY_TOKEN:
+        from_secret: gotify_token
+
+    commands:
+      - |
+        TIMESTAMP="$(TZ=UTC3 date '+%d/%m/%Y %H:%M')"
+
+        curl -fsS \
+          --connect-timeout 5 \
+          --max-time 10 \
+          --output /dev/null \
+          -X POST \
+          "https://gotify.brunnoserver.duckdns.org/message?token=$GOTIFY_TOKEN" \
+          -F "title=WoodpeckerCI" \
+          -F "message=WoodpeckerCI · Api-bun · Staging image published; Portainer deployment pending · $${TIMESTAMP}" \
+          -F "priority=5" \
+          || true
+
+    when:
+      - event: push
+        branch: main
+        status: [success]
+
+  - name: notify-error-staging
+    image: curlimages/curl
+
+    environment:
+      GOTIFY_TOKEN:
+        from_secret: gotify_token
+
+    commands:
+      - |
+        TIMESTAMP="$(TZ=UTC3 date '+%d/%m/%Y %H:%M')"
+
+        curl -fsS \
+          --connect-timeout 5 \
+          --max-time 10 \
+          --output /dev/null \
+          -X POST \
+          "https://gotify.brunnoserver.duckdns.org/message?token=$GOTIFY_TOKEN" \
+          -F "title=WoodpeckerCI" \
+          -F "message=WoodpeckerCI · Api-bun · Staging image build/publish failed · $${TIMESTAMP}" \
+          -F "priority=8" \
+          || true
+
+    when:
+      - event: push
+        branch: main
+        status: [failure]

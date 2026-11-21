@@ -1,9 +1,5 @@
 when:
-  - event: push
-    branch: main
-
   - event: tag
-
 labels:
   platform: linux/arm64
 
@@ -15,32 +11,6 @@ steps:
   # =========================================================
   # NOTIFICAÇÕES DE INÍCIO
   # =========================================================
-
-  - name: notify-start-staging
-    image: curlimages/curl
-
-    environment:
-      GOTIFY_TOKEN:
-        from_secret: gotify_token
-
-    commands:
-      - |
-        TIMESTAMP="$(TZ=UTC3 date '+%d/%m/%Y %H:%M')"
-
-        curl -fsS \
-          --connect-timeout 5 \
-          --max-time 10 \
-          --output /dev/null \
-          -X POST \
-          "https://gotify.brunnoserver.duckdns.org/message?token=$GOTIFY_TOKEN" \
-          -F "title=WoodpeckerCI" \
-          -F "message=WoodpeckerCI · Api-bun · Staging image build/publish started · $${TIMESTAMP}" \
-          -F "priority=5" \
-          || true
-
-    when:
-      - event: push
-        branch: main
 
   - name: notify-start-production
     image: curlimages/curl
@@ -121,67 +91,6 @@ steps:
 
     when:
       - event: tag
-  # =========================================================
-  # FASE 2: STAGING
-  # =========================================================
-
-  - name: publish-staging-image
-    image: docker:cli
-    volumes:
-      - /var/run/docker.sock:/var/run/docker.sock
-    environment:
-      GITEA_REGISTRY_TOKEN:
-        from_secret: gitea_registry_token
-    commands:
-      - |
-        set -eu
-
-        test "$CI_REPO_OWNER/$CI_REPO_NAME" = "brunno/api-bun"
-        test -n "$CI_COMMIT_SHA"
-        test -n "$GITEA_REGISTRY_TOKEN"
-
-        SHORT_SHA="$(printf '%s' "$CI_COMMIT_SHA" | cut -c 1-12)"
-        IMAGE_REPO="gitea.brunnoserver.duckdns.org/brunno/api-bun"
-        IMAGE="$IMAGE_REPO:staging-$SHORT_SHA"
-
-        export DOCKER_CONFIG="$(mktemp -d)"
-        PUSH_LOG="$(mktemp)"
-        trap 'rm -f "$PUSH_LOG"; rm -rf "$DOCKER_CONFIG"' EXIT
-
-        printf '%s' "$GITEA_REGISTRY_TOKEN" | docker login \
-          gitea.brunnoserver.duckdns.org \
-          --username brunno \
-          --password-stdin
-        unset GITEA_REGISTRY_TOKEN
-
-        echo "Construindo imagem Docker ARM64 de staging..."
-        echo "BUILD_IMAGE=$IMAGE"
-        docker build --platform linux/arm64 -t "$IMAGE" .
-        echo "Publicando imagem de staging no Gitea Registry..."
-        if ! docker push "$IMAGE" > "$PUSH_LOG" 2>&1; then
-          cat "$PUSH_LOG"
-          exit 1
-        fi
-        cat "$PUSH_LOG"
-
-        DIGEST="$(sed -n 's/.*digest: \(sha256:[0-9a-f]*\).*/\1/p' "$PUSH_LOG" | tail -n 1)"
-        case "$DIGEST" in
-          sha256:*) ;;
-          *) echo "ERROR: registry did not provide an OCI digest"; exit 1 ;;
-        esac
-        test "$(printf '%s' "$DIGEST" | wc -c)" -eq 71
-
-        echo "STAGING_IMAGE_TAG=$IMAGE"
-        echo "STAGING_IMAGE_DIGEST=$IMAGE_REPO@$DIGEST"
-        echo "PORTAINER_IMAGE=$IMAGE@$DIGEST"
-        echo "DEPLOY_STATUS=PENDING_MANUAL_PORTAINER"
-    when:
-      - event: push
-        branch: main
-
-  # =========================================================
-  # FASE 3: PRODUCTION
-  # =========================================================
 
   - name: gerar-release-notes
     image: alpine
@@ -789,60 +698,6 @@ steps:
   # =========================================================
   # NOTIFICAÇÕES DE SUCESSO E ERRO
   # =========================================================
-
-  - name: notify-success-staging
-    image: curlimages/curl
-
-    environment:
-      GOTIFY_TOKEN:
-        from_secret: gotify_token
-
-    commands:
-      - |
-        TIMESTAMP="$(TZ=UTC3 date '+%d/%m/%Y %H:%M')"
-
-        curl -fsS \
-          --connect-timeout 5 \
-          --max-time 10 \
-          --output /dev/null \
-          -X POST \
-          "https://gotify.brunnoserver.duckdns.org/message?token=$GOTIFY_TOKEN" \
-          -F "title=WoodpeckerCI" \
-          -F "message=WoodpeckerCI · Api-bun · Staging image published; Portainer deployment pending · $${TIMESTAMP}" \
-          -F "priority=5" \
-          || true
-
-    when:
-      - event: push
-        branch: main
-        status: [success]
-
-  - name: notify-error-staging
-    image: curlimages/curl
-
-    environment:
-      GOTIFY_TOKEN:
-        from_secret: gotify_token
-
-    commands:
-      - |
-        TIMESTAMP="$(TZ=UTC3 date '+%d/%m/%Y %H:%M')"
-
-        curl -fsS \
-          --connect-timeout 5 \
-          --max-time 10 \
-          --output /dev/null \
-          -X POST \
-          "https://gotify.brunnoserver.duckdns.org/message?token=$GOTIFY_TOKEN" \
-          -F "title=WoodpeckerCI" \
-          -F "message=WoodpeckerCI · Api-bun · Staging image build/publish failed · $${TIMESTAMP}" \
-          -F "priority=8" \
-          || true
-
-    when:
-      - event: push
-        branch: main
-        status: [failure]
 
   - name: notify-success-production
     image: curlimages/curl
