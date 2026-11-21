@@ -1,6 +1,9 @@
 when:
+  - event: pull_request
+    branch: main
+  - event: push
+    branch: main
   - event: manual
-
 labels:
   platform: linux/amd64
   role: build-linux
